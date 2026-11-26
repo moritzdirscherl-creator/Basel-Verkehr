@@ -120,23 +120,25 @@ article.sel{border-color:var(--acc);box-shadow:inset 4px 0 0 var(--acc)}
 main{flex:1;display:flex;flex-direction:column}
 #side{display:contents}
 #hero{order:1;padding:12px max(4vw,14px) 0;position:relative}
-.seg{order:2;display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:12px max(4vw,14px) 0;padding:4px;border-radius:12px;background:var(--soft);border:1px solid var(--line)}
-.seg button{min-height:40px;border-radius:9px;background:transparent;color:var(--muted);font-weight:600}
+.seg{order:2;display:grid;grid-template-columns:1fr 1fr 1.25fr;gap:4px;margin:12px max(4vw,14px) 0;padding:4px;border-radius:12px;background:var(--soft);border:1px solid var(--line)}
+.seg button{min-height:42px;border-radius:9px;background:transparent;color:var(--muted);font-weight:600;font-size:15px;position:relative}
 .seg button[aria-selected=true]{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.seg .badge{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--warn);margin-left:6px;vertical-align:1px}
+.seg .badge.bad{background:var(--bad)}
 #map{order:3;height:calc(100dvh - 330px);min-height:320px;margin-top:12px;border-block:1px solid var(--line)}
-#focus{order:4;padding:12px max(4vw,14px) 4px}
-#list{order:5}
-main.v-plan #map{display:none}
-main.v-map #focus,main.v-map #list{display:none}
-#hero:empty,#focus:empty{display:none}
+#focus{order:4;padding:12px max(4vw,14px) 16px}
+#alts{order:5;padding:12px max(4vw,14px) 0}
+#list{order:6}
+main.v-plan #map,main.v-plan #alts,main.v-plan #list{display:none}
+main.v-map #focus,main.v-map #alts,main.v-map #list{display:none}
+main.v-alt #map,main.v-alt #focus{display:none}
+#hero:empty,#focus:empty,#alts:empty{display:none}
 @media(min-width:900px){
   body{height:100vh}
   main{display:grid;grid-template-columns:minmax(0,480px) minmax(0,1fr);min-height:0}
   #side{display:block;overflow:auto;border-right:1px solid var(--line)}
-  .seg{display:none}
-  main.v-plan #map,main.v-map #map{display:block;height:auto;margin:0;border:0}
-  main.v-map #focus,main.v-map #list{display:block}
-  main.v-map #list{display:grid}
+  .seg{grid-template-columns:1fr 1fr}.seg .mapbtn{display:none}
+  main #map{display:block!important;height:auto;margin:0;border:0}
 }
 h2{font-size:13px;font-weight:600;color:var(--muted);margin:4px 0 0;text-transform:none}
 /* Antwort-Kopf: Abfahrt (Längt / Renn! / Längt nid) und Umstieg getrennt */
@@ -148,7 +150,7 @@ h2{font-size:13px;font-weight:600;color:var(--muted);margin:4px 0 0;text-transfo
 .hl{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.02em}
 .dep{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
 .dep .w{font:700 40px/1 "Barlow Semi Condensed",sans-serif;color:var(--lt)}
-.dep .w{min-width:0}.dep .w.sm{font-size:24px;line-height:1.15;color:var(--ink)}
+.dep .w{min-width:0;flex:1}.dep .cd{flex:none}.dep .w.sm{font-size:22px;line-height:1.15;color:var(--ink)}
 .dep .cd{text-align:right;font:700 30px/1 "Barlow Semi Condensed",sans-serif;white-space:nowrap}
 .dep .cd small{display:block;font:500 12px Inter,sans-serif;color:var(--muted);margin-top:2px}
 .dsub{font-size:14px;margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
@@ -212,6 +214,41 @@ details.planb li{flex-wrap:wrap}
 .pbgo{margin-left:auto;min-height:34px;padding:0 10px;border-radius:8px;background:var(--soft);border:1px solid var(--line);color:var(--ink);font-size:13px}
 .foot{font-size:12px;color:var(--muted);margin:6px 0 0}
 @media(prefers-reduced-motion:reduce){.track .dot{transition:none}}
+/* Plan als Kacheln */
+.tiles{display:flex;flex-direction:column}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 14px 12px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.th,.tile.walk,.tile.xfer,.tile.end{display:flex;align-items:center;gap:12px}
+.tb{min-width:0;flex:1}
+.tt{font:700 21px/1.15 "Barlow Semi Condensed",sans-serif;overflow-wrap:anywhere}
+.ts{font-size:13px;color:var(--muted);margin-top:2px}
+.tr{margin-left:auto;text-align:right;font:700 26px/1 "Barlow Semi Condensed",sans-serif;white-space:nowrap}
+.tr small{display:block;font:500 12px Inter,sans-serif;color:var(--muted);margin-top:4px}
+.ln.big{min-width:48px;height:42px;font-size:25px;border-radius:11px;flex:none}
+.ln.big.bus{border-radius:21px}
+.tic{width:42px;height:42px;border-radius:50%;background:var(--soft);display:grid;place-items:center;flex:none}
+.tic svg{width:22px;height:22px;fill:var(--muted)}
+.tile.walk{background:var(--soft);border-style:dashed;box-shadow:none}
+.tile.walk .tt{font-size:19px}
+.tile.xfer{background:color-mix(in srgb,var(--lc) 14%,var(--card));border:2px solid color-mix(in srgb,var(--lc) 60%,transparent)}
+.tile.xfer .tr{color:var(--lt)}
+.tile.xfer .tr small{color:var(--ink);font-weight:600;font-size:13px}
+.tile.end{border:2px solid var(--ink)}
+.tile.end .tic{background:var(--ink)}.tile.end .tic::after{content:"";width:12px;height:12px;border-radius:50%;background:var(--card)}
+.tile .now{margin-top:10px;font-size:15px}
+.tile .track{margin:8px 16px 0}
+.tarrow{align-self:flex-start;margin:0 0 0 34px;width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:9px solid var(--line);margin-block:3px}
+/* Alternativen */
+.altsec{margin-bottom:14px}
+.altsec h3{font-size:14px;font-weight:600;margin:0 0 8px}
+.altsec h3 small{display:block;font-weight:500;color:var(--muted);font-size:13px}
+.atile{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:6px;flex-wrap:wrap}
+.atile .num{font:700 22px "Barlow Semi Condensed",sans-serif;min-width:52px}
+.atile .lns{display:flex;gap:4px;align-items:center}
+.atile .lns .ln{background:var(--pb)}
+.atile .ar{margin-left:auto;text-align:right;font-size:13px;color:var(--muted)}
+.atile .ar b{display:block;font:700 18px "Barlow Semi Condensed",sans-serif;color:var(--ink)}
+.atile.walky{background:var(--soft);border-style:dashed}
+.atile .pbgo{min-height:36px;padding:0 12px;border-radius:9px;background:var(--ink);color:var(--card);border:0;font-size:14px}
 </style>
 </head>
 <body>
@@ -236,8 +273,9 @@ details.planb li{flex-wrap:wrap}
 <main>
   <div id="side">
     <section id="hero" aria-live="polite"></section>
-    <div class="seg" id="seg" role="tablist" hidden><button type="button" data-v="plan" role="tab">Plan</button><button type="button" data-v="map" role="tab">Karte</button></div>
+    <div class="seg" id="seg" role="tablist" hidden><button type="button" data-v="plan" role="tab">Plan</button><button type="button" data-v="map" role="tab" class="mapbtn">Karte</button><button type="button" data-v="alt" role="tab" id="altbtn">Alternativen</button></div>
     <section id="focus"></section>
+    <section id="alts"></section>
     <section id="list"><p class="empty">Ziel antippen oder eingeben – den Start findet «📍 in meiner Nähe».</p></section>
   </div>
   <div id="map" aria-label="Karte mit den Fahrzeugen der gewählten Verbindung"></div>
@@ -466,7 +504,7 @@ function render(){
   const A=st.conns.map(analyse),si=selIndex();
   const best=A[0]&&A[0].level==='bad'?A.findIndex(a=>a.level!=='bad'):-1;
   $('#list').innerHTML=st.conns.length?(st.walkFallback?`<p class="note">Ohne Fussweg gibt es hier keine Verbindung – zeige Varianten mit Fussweg.</p>`:'')
-    +'<h2>Alle Verbindungen · antippen zum Anzeigen</h2>'+st.conns.map((c,i)=>card(c,A[i],i===si,i===best)).join('')
+    +'<h2>Andere Verbindungen ab jetzt · antippen</h2>'+st.conns.map((c,i)=>card(c,A[i],i===si,i===best)).join('')
     +'<p class="foot">Fahrzeugpositionen berechnet aus Fahrplan und Echtzeit-Prognose (kein GPS). Daten: transport.opendata.ch</p>'
     :'<p class="empty">Keine Verbindung gefunden. Haltestellennamen prüfen (z.B. «Basel, Barfüsserplatz»).</p>';
   st.cur={c:st.conns[si],a:A[si]};st.heroSig='';$('#seg').hidden=!st.conns.length;
@@ -550,50 +588,51 @@ function renderHero(){
   st.lastDep=lv;st.lastDepKey=st.selKey;
 }
 
-/* ---------- Schritte ---------- */
-const MK_WALK=`<span class="mk">${WALK}</span>`;
+/* ---------- Plan als Kacheln ---------- */
 function renderFocus(c,a){
   const F=$('#focus');st.band=[];
-  if(!c||!a){F.innerHTML='';return}
-  let h='<h2>Deine Fahrt</h2><ol class="steps">',k=-1;
+  if(!c||!a){F.innerHTML='';renderAlts(null,null);return}
+  const parts=[];let k=-1;
   (c.sections||[]).forEach(s=>{
     if(!s.journey){
       const m=mins(walkSec(s)),to=esc(short(stn(s.arrival).name));
-      if(k<0)h+=`<li class="step">${MK_WALK}<div class="s1"><span>${m} Min. zu Fuss zur <b>${to}</b></span><span class="tm">${hm(dep(s.departure))}</span></div></li>`;
-      else if(k===a.rides.length-1)h+=`<li class="step">${MK_WALK}<div class="s1"><span>${m} Min. zu Fuss bis <b>${to}</b></span></div></li>`;
+      parts.push(`<div class="tile walk"><span class="tic">${WALK}</span><div class="tb"><div class="tt">${m} Min. zu Fuss</div><div class="ts">${k<0?'zur Haltestelle':'bis'} ${to}</div></div>${k<0?`<div class="tr">${hm(dep(s.departure))}<small>los</small></div>`:''}</div>`);
       return;
     }
     k++;const r=s;
-    h+=`<li class="step ride" data-i="${k}"><span class="mk">${icon(r)}</span>
-      <div class="s1">${LN(r)}<span class="dir">Richtung ${esc(short(r.journey.to))}</span><span class="tm">${hm(dep(r.departure))}</span></div>
-      <div class="now"></div><div class="track"></div>
-      <div class="ends"><span>ein: <b>${esc(short(stn(r.departure).name))}</b></span><span>aus: <b>${esc(short(stn(r.arrival).name))}</b> ${hm(arr(r.arrival))}</span></div></li>`;
+    parts.push(`<div class="tile ride" data-i="${k}"><div class="th">${LN(r,'big')}<div class="tb"><div class="tt">${esc(short(stn(r.departure).name))} → ${esc(short(stn(r.arrival).name))}</div><div class="ts">${isBus(r)?'Bus':'Tram'} Richtung ${esc(short(r.journey.to))}</div></div>
+      <div class="tr">${hm(dep(r.departure))}<small>an ${hm(arr(r.arrival))}</small></div></div><div class="now"></div><div class="track"></div></div>`);
     const x=a.xfers[k];
-    if(x)h+=`<li class="step xstep" style="--lc:${LC[lvl(x.buf)]}"><span class="mk"></span><div class="xbox ${lvl(x.buf)}"><span>${x.walk&&x.fromAt!==x.at?`Umsteigen ${esc(short(x.fromAt))} → ${esc(short(x.at))}<small>${mins(x.walk)} Min. zu Fuss</small>`:`Umsteigen ${esc(short(x.at))}`}</span><b>${bufTxt(x.buf)}</b></div></li>`;
+    if(x){const L=lvl(x.buf),wk=x.walk&&x.fromAt!==x.at;
+      parts.push(`<div class="tile xfer ${L}"><div class="tb"><div class="ts">Umsteigen${wk?' · '+mins(x.walk)+' Min. zu Fuss':''}</div><div class="tt">${wk?esc(short(x.fromAt))+' → '+esc(short(x.at)):esc(short(x.at))}</div></div><div class="tr">${LV[L]}<small>${bufTxt(x.buf)}</small></div></div>`)}
   });
-  h+=`<li class="step end"><span class="mk"></span><div class="s1"><span>Ankunft <b>${esc(short(stn(c.to).name))}</b></span><span class="tm">${hm(arr(c.to))}</span></div></li></ol>`;
-  const wo=walkOpts(c);st.walkOptsCur=wo;
-  if((st.planB&&st.planB.x)||wo.length){
-    const pb=st.planB&&st.planB.x?st.planB:null,open=a.level==='bad'||a.level==='warn';
-    const n=(pb?pb.list.length+pb.walk.length+(pb.foot?1:0):0)+wo.length;
-    h+=`<details class="planb"${open?' open':''}><summary>Plan B${pb?' ab '+esc(short(pb.x.at)):''} (${n})</summary>`;
-    if(pb){
-      h+=pb.list.length?'<ul>'+pb.list.map(o=>`<li><span class="num">${hm(dep(o.r.departure))}</span>${LN(o.r)}<span>→ an ${hm(arr(o.k.to))}</span></li>`).join('')+'</ul>'
-        :'<p class="note">Kein anderes Tram/Bus ab hier.</p>';
-      if(pb.walk.length||pb.foot){
-        h+='<p class="pbh">Mit Fussweg</p><ul>';
-        if(pb.foot)h+=`<li><span class="num">${hm(pb.x.arr)}</span><span class="wchip">${WALK}${mins(pb.foot.s)}'</span><span>ganz zu Fuss · an ${hm(pb.foot.a)}</span></li>`;
-        h+=pb.walk.map(o=>`<li><span class="num">${hm(dep(o.k.from))}</span>${(o.k.sections||[]).map(s=>s.journey?LN(s):`<span class="wchip">${WALK}${mins(walkSec(s))}'</span>`).join('')}<span>→ an ${hm(arr(o.k.to))}</span></li>`).join('')+'</ul>';
-      }
-    }
-    if(wo.length){
-      h+=`<p class="pbh">Ab Start mit Fussweg – früher da</p><ul>`+wo.map(k=>`<li><span class="num">${hm(dep(k.from))}</span>${(k.sections||[]).map(s=>s.journey?LN(s):`<span class="wchip">${WALK}${mins(walkSec(s))}'</span>`).join('')}<span>an ${hm(arr(k.to))} · ${Math.round((arr(c.to)-arr(k.to))/60)} Min. früher</span><button type="button" class="pbgo" data-wk="${esc(ckey(k))}">Anzeigen</button></li>`).join('')+'</ul>';
-    }
-    h+='</details>';
-  }
-  F.innerHTML=h;
-  F.querySelectorAll('.step.ride').forEach(el=>{const r=a.rides[+el.dataset.i];st.band.push({r,track:el.querySelector('.track'),now:el.querySelector('.now'),sig:'',dot:null})});
+  parts.push(`<div class="tile end"><span class="tic"></span><div class="tb"><div class="ts">Ankunft</div><div class="tt">${esc(short(stn(c.to).name))}</div></div><div class="tr">${hm(arr(c.to))}</div></div>`);
+  F.innerHTML='<div class="tiles">'+parts.join('<i class="tarrow"></i>')+'</div>';
+  F.querySelectorAll('.tile.ride').forEach(el=>{const r=a.rides[+el.dataset.i];st.band.push({r,track:el.querySelector('.track'),now:el.querySelector('.now'),sig:'',dot:null})});
+  renderAlts(c,a);
   tick();
+}
+/* ---------- Alternativen-Tab ---------- */
+const lnsOf=k=>(k.sections||[]).map(s=>s.journey?LN(s):`<span class="wchip">${WALK}${mins(walkSec(s))}'</span>`).join('');
+function renderAlts(c,a){
+  const E=$('#alts'),btn=$('#altbtn');
+  if(!c||!a){E.innerHTML='';btn.innerHTML='Alternativen';return}
+  const pb=st.planB&&st.planB.x?st.planB:null,wo=walkOpts(c);st.walkOptsCur=wo;
+  let h='';
+  if(pb){
+    h+=`<div class="altsec"><h3>Anschluss in ${esc(short(pb.x.at))} verpasst?<small>Du bist dort ca. ${hm(pb.x.arr)}</small></h3>`;
+    h+=pb.list.length?pb.list.map(o=>`<div class="atile"><span class="num">${hm(dep(o.r.departure))}</span><span class="lns">${LN(o.r)}</span><span class="ts">${o.buf<120?'knapp':''}</span><span class="ar">Ankunft<b>${hm(arr(o.k.to))}</b></span></div>`).join('')
+      :'<p class="note">Kein anderes Tram oder Bus ab hier.</p>';
+    if(pb.foot)h+=`<div class="atile walky"><span class="num">${hm(pb.x.arr)}</span><span class="wchip">${WALK}${mins(pb.foot.s)}'</span><span class="ts">ganz zu Fuss</span><span class="ar">Ankunft<b>${hm(pb.foot.a)}</b></span></div>`;
+    h+=pb.walk.map(o=>`<div class="atile walky"><span class="num">${hm(dep(o.k.from))}</span><span class="lns">${lnsOf(o.k)}</span><span class="ar">Ankunft<b>${hm(arr(o.k.to))}</b></span></div>`).join('');
+    h+='</div>';
+  }
+  if(wo.length){
+    h+=`<div class="altsec"><h3>Mit Fussweg früher da<small>ab ${esc(short(stn(c.from).name))} bzw. in der Nähe</small></h3>`+wo.map(k=>`<div class="atile walky"><span class="num">${hm(dep(k.from))}</span><span class="lns">${lnsOf(k)}</span><span class="ar">${Math.round((arr(c.to)-arr(k.to))/60)} Min. früher<b>${hm(arr(k.to))}</b></span><button type="button" class="pbgo" data-wk="${esc(ckey(k))}">Anzeigen</button></div>`).join('')+'</div>';
+  }
+  E.innerHTML=h;
+  const warn=a.level==='bad'||a.level==='warn';
+  btn.innerHTML='Alternativen'+(warn?`<span class="badge ${a.level==='bad'?'bad':''}"></span>`:'');
 }
 const xpos=(i,b,n)=>{const A=b>0?30:0;return b>0&&i<=b?A*i/b:A+(100-A)*(i-b)/Math.max(1,n-b)};
 function drawTrack(o,P){
@@ -743,9 +782,9 @@ F.addEventListener('input',ac);To.addEventListener('input',ac);
 /* Fahrzeug-Auswahl, Hero-Knopf */
 const selectKey=k=>{if(!k||k===st.selKey)return;st.selKey=k;st.planB=null;st.lastDep='';render();
   window.scrollTo({top:0,behavior:'smooth'});Promise.all([loadPlanB(),loadApproaches()]).then(render)};
-const pick=el=>{const a=el.closest('article');if(a)selectKey(a.dataset.k)};
+const pick=el=>{const a=el.closest('article');if(!a)return;selectKey(a.dataset.k);setView('plan')};
 $('#list').addEventListener('click',e=>pick(e.target));
-$('#focus').addEventListener('click',e=>{const b=e.target.closest('button[data-wk]');if(!b)return;
+$('#alts').addEventListener('click',e=>{const b=e.target.closest('button[data-wk]');if(!b)return;
   const k=(st.walkOptsCur||[]).find(c=>ckey(c)===b.dataset.wk);if(!k)return;
   if(!st.conns.some(c=>ckey(c)===b.dataset.wk)){st.conns.push(k);st.conns.sort((x,y)=>(dep(x.from)??0)-(dep(y.from)??0))}
   selectKey(b.dataset.wk)});
@@ -772,7 +811,7 @@ function locate(manual){
 }
 try{navigator.permissions&&navigator.permissions.query({name:'geolocation'}).then(r=>{if(r.state==='granted')locate(false)}).catch(()=>{})}catch(e){}
 /* Plan / Karte */
-function setView(v){MAIN.classList.toggle('v-plan',v==='plan');MAIN.classList.toggle('v-map',v==='map');
+function setView(v){if(v==='map'&&matchMedia('(min-width:900px)').matches)v='plan';['plan','map','alt'].forEach(x=>MAIN.classList.toggle('v-'+x,v===x));
   document.querySelectorAll('#seg button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.v===v)));
   LS.set('lg-view',v);if(v==='map'&&map){setTimeout(()=>{map.invalidateSize();st.fitKey='';if(st.cur&&st.cur.a)drawMap(st.cur.a)},30)}}
 $('#seg').addEventListener('click',e=>{const b=e.target.closest('button');if(b)setView(b.dataset.v)});
