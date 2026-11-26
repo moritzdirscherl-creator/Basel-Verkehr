@@ -241,7 +241,8 @@ details.planb li{flex-wrap:wrap}
 .tic svg{width:22px;height:22px;fill:var(--muted)}
 .tile.walk{background:var(--soft);border-style:dashed;box-shadow:none}
 .tile.walk .tt{font-size:19px}
-.tile.gst{position:relative;--lc:var(--acc);--lt:var(--ink);background:color-mix(in srgb,var(--lc) 14%,var(--card));border:2px solid color-mix(in srgb,var(--lc) 60%,transparent)}
+:where(.tile.gst){--lc:var(--line);--lt:var(--ink)}
+.tile.gst{position:relative;background:color-mix(in srgb,var(--lc) 14%,var(--card));border:2px solid color-mix(in srgb,var(--lc) 60%,transparent)}
 .tile.gst.ride0{--lc:var(--line)}
 .tile.gst .tt.gw{font-size:36px;line-height:1;color:var(--lt)}
 .tile.gst .tr{font-size:30px}
