@@ -479,7 +479,7 @@ async function load(fresh){
         const up=tidy(raw,undefined).filter(c=>(dep(c.from)??0)>now()).length;
         if(up<4&&raw.length){const last=Math.max(...raw.map(c=>c.from&&c.from.departureTimestamp||0));
           if(last){const d2=new Date((last+60)*1000);try{const j2=await getJSON(API+'connections?'+new URLSearchParams({from:st.from,to:st.to,limit:'10',date:ymd(d2),time:hhmm(d2)}));raw=raw.concat(j2.connections||[])}catch(e){}}}
-        if(fresh)setStatus('Suche Tram-Verbindungen …');
+        if(fresh)setStatus('Suche Verbindungen …');
         if(fresh||!st.builtAt||now()-st.builtAt>90){try{st.built=await buildRoutes(raw)}catch(e){st.built=[]}st.builtAt=now()}
         st.raw=raw;st.conns=tidy(raw.concat(st.built||[]),st.selKey);st.live=true;addTiles()}
       catch(e){
