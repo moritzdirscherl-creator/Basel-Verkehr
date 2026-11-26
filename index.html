@@ -401,11 +401,12 @@ async function getJSON(url){
 
 /* ---------- Fusswege durch Tram/Bus ersetzen (Abfahrtstafel) ---------- */
 const BC=new Map();
-function board(id,t){
-  const b=Math.floor(t/300),k=id+'|'+b,c=BC.get(k);
+function board(id,t,kind){
+  const b=Math.floor(t/300),k=id+'|'+b+'|'+(kind||''),c=BC.get(k);
   if(c&&now()-c.at<90)return c.p;
   const d=new Date(b*300*1000);
-  const p=getJSON(API+'stationboard?'+new URLSearchParams({id,limit:'40',datetime:ymd(d)+' '+hhmm(d)})).then(j=>j.stationboard||[]).catch(()=>[]);
+  const q=new URLSearchParams({id,limit:kind?'60':'40',datetime:ymd(d)+' '+hhmm(d)});if(kind)q.append('transportations[]',kind);
+  const p=getJSON(API+'stationboard?'+q).then(j=>j.stationboard||[]).catch(()=>[]);
   BC.set(k,{at:now(),p});return p;
 }
 function secFromBoard(e,j){
@@ -528,25 +529,33 @@ async function loadApproach(r){
   const j=r.journey,B=String(stn(r.departure).id||'');if(!B)return;
   const same=e=>String(e.number)===String(j.number)&&e.category===j.category;
   const pl0=j.passList||[],nextId=pl0[1]?String(stn(pl0[1]).id):'';
-  /* 1) Gegenrichtung derselben Linie an DEINER Haltestelle (per ID) -> Haltestellen vor dir */
+  const kind=isBus(r)?'bus':'tram';
+  /* 1) Gegenrichtung derselben Linie an deiner Haltestelle oder in der Nähe -> Haltestellen vor dir */
   const okey=j.category+j.number+'|'+B+'|'+nextId;
   let seq=st.orig.get(okey);
   if(seq===undefined){
     seq=null;
-    for(const tt of [now(),now()+900,now()+1800]){
-      const L=await board(B,tt);
-      const m=L.find(e=>same(e)&&(e.passList||[]).length>2&&!(e.passList||[]).some(p=>String(stn(p).id)===nextId));
-      if(m){seq=m.passList.slice(1).map(p=>String(stn(p).id||''));break}
+    const rev=L=>L.find(e=>same(e)&&(e.passList||[]).length>2&&!(e.passList||[]).some(p=>String(stn(p).id)===nextId));
+    for(const tt of [now(),now()+900,now()+1800]){const m=rev(await board(B,tt,kind));if(m){seq=m.passList.slice(1).map(p=>String(stn(p).id||''));break}}
+    if(!seq){
+      const c0=ll(r.departure);
+      if(c0){try{
+        const nb=await getJSON(API+'locations?'+new URLSearchParams({x:c0[0],y:c0[1],type:'station'}));
+        for(const s2 of (nb.stations||[]).filter(s2=>s2.id&&String(s2.id)!==B&&s2.distance!=null&&s2.distance<=300).slice(0,3)){
+          let m=null;for(const tt of [now(),now()+900]){m=rev(await board(String(s2.id),tt,kind));if(m)break}
+          if(m){seq=m.passList.map(p=>String(stn(p).id||''));break}
+        }
+      }catch(e){}}
     }
     st.orig.set(okey,seq);
   }
-  if(!seq||!seq.length){st.apprState.set(key,'unknown');return}
+  if(!seq||!seq.length){st.apprState.set(key,'start');return}
   /* 2) dieselbe Fahrt einige Haltestellen weiter vorne suchen */
   const tried=new Set();
   for(const k of [10,6,3,1].map(x=>Math.min(seq.length,x))){
     if(tried.has(k))continue;tried.add(k);
-    const A=seq[k-1];if(!A)continue;
-    const L=await board(A,dp-k*150-600);
+    const A=seq[k-1];if(!A||A===B)continue;
+    const L=await board(A,dp-k*150-600,kind);
     const m=L.find(e=>e.name===j.name&&same(e));
     if(m){const i=(m.passList||[]).findIndex(p=>String(stn(p).id)===B);
       if(i>0){const pl=m.passList.slice(0,i+1);if(m.stop)pl[0]=Object.assign({},pl[0],m.stop);st.appr.set(key,pl);st.apprState.set(key,'ok');return}}
