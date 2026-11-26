@@ -131,10 +131,12 @@ main{flex:1;display:flex;flex-direction:column}
 .seg button[aria-selected=true]{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
 .seg .badge{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--warn);margin-left:6px;vertical-align:1px}
 .seg .badge.bad{background:var(--bad)}
-#map{order:3;height:calc(100dvh - 330px);min-height:320px;margin-top:12px;border-block:1px solid var(--line)}
-#focus{order:4;padding:12px max(4vw,14px) 16px}
-#alts{order:5;padding:12px max(4vw,14px) 0}
-#list{order:6}
+#map{order:4;height:calc(100dvh - 330px);min-height:320px;margin-top:12px;border-block:1px solid var(--line)}
+#go{order:3;padding:12px max(4vw,14px) 0}
+#focus{order:5;padding:12px max(4vw,14px) 16px}
+#hero{display:none!important}
+#alts{order:6;padding:12px max(4vw,14px) 0}
+#list{order:7}
 main.v-plan #map,main.v-plan #alts,main.v-plan #list{display:none}
 main.v-map #focus,main.v-map #alts,main.v-map #list{display:none}
 main.v-alt #map,main.v-alt #focus,main.v-alt #list{display:none}
@@ -227,7 +229,7 @@ details.planb li{flex-wrap:wrap}
 /* Plan als Kacheln */
 .tiles{display:flex;flex-direction:column}
 .tile{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 14px 12px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
-.th,.tile.walk,.tile.xfer,.tile.end{display:flex;align-items:center;gap:12px}
+.th,.tile.walk,.tile.end{display:flex;align-items:center;gap:12px}.tile.xfer{display:flex}
 .tb{min-width:0;flex:1}
 .tt{font:700 21px/1.15 "Barlow Semi Condensed",sans-serif;overflow-wrap:anywhere}
 .ts{font-size:13px;color:var(--muted);margin-top:2px}
@@ -239,6 +241,14 @@ details.planb li{flex-wrap:wrap}
 .tic svg{width:22px;height:22px;fill:var(--muted)}
 .tile.walk{background:var(--soft);border-style:dashed;box-shadow:none}
 .tile.walk .tt{font-size:19px}
+.tile.gst{position:relative;--lc:var(--acc);--lt:var(--ink);background:color-mix(in srgb,var(--lc) 14%,var(--card));border:2px solid color-mix(in srgb,var(--lc) 60%,transparent)}
+.tile.gst.ride0{--lc:var(--line)}
+.tile.gst .tt.gw{font-size:36px;line-height:1;color:var(--lt)}
+.tile.gst .tr{font-size:30px}
+.tile.gst .tic{background:var(--card)}
+.gsub{margin-top:8px;font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.tile.gst.blink::after{content:"";position:absolute;inset:-2px;border-radius:16px;background:var(--warn);pointer-events:none;opacity:0;animation:blink .55s ease-in-out 7}
+.tile.xfer{flex-direction:column;align-items:stretch}
 .tile.xfer{background:color-mix(in srgb,var(--lc) 14%,var(--card));border:2px solid color-mix(in srgb,var(--lc) 60%,transparent)}
 .tile.xfer .tr{color:var(--lt)}
 .tile.xfer .tr small{color:var(--ink);font-weight:600;font-size:13px}
@@ -285,6 +295,7 @@ details.planb li{flex-wrap:wrap}
   <div id="side">
     <section id="hero" aria-live="polite"></section>
     <div class="seg" id="seg" role="tablist" hidden><button type="button" data-v="plan" role="tab">Plan</button><button type="button" data-v="map" role="tab" class="mapbtn">Karte</button><button type="button" data-v="alt" role="tab" id="altbtn">Alternativen</button></div>
+    <section id="go" hidden><div class="tile gst" id="gotile"></div></section>
     <section id="focus"></section>
     <section id="alts"></section>
     <section id="list"><p class="empty">Ziel antippen oder eingeben – den Start findet «📍 in meiner Nähe».</p></section>
@@ -571,7 +582,7 @@ function render(){
     +'<h2>Andere Verbindungen ab jetzt · antippen</h2>'+st.conns.map((c,i)=>card(c,A[i],i===si,i===best)).join('')
     +'<p class="foot">Fahrzeugpositionen berechnet aus Fahrplan und Echtzeit-Prognose (kein GPS). Daten: transport.opendata.ch</p>'
     :'<p class="empty">Keine Verbindung gefunden. Haltestellennamen prüfen (z.B. «Basel, Barfüsserplatz»).</p>';
-  st.cur={c:st.conns[si],a:A[si]};st.heroSig='';$('#seg').hidden=!st.conns.length;
+  st.cur={c:st.conns[si],a:A[si]};st.heroSig='';$('#hero').innerHTML='';$('#seg').hidden=!st.conns.length;$('#go').hidden=!st.conns.length;
   renderFocus(st.conns[si],A[si]);
   drawMap(A[si]);
 }
@@ -614,42 +625,34 @@ function nextOk(){
   return null;
 }
 function renderHero(){
-  const H=$('#hero'),c=st.cur&&st.cur.c,a=st.cur&&st.cur.a;
-  if(!c||!a){H.innerHTML='';st.heroSig='';return}
-  const d=depStatus(c,a),t=now();
-  const xs=a.xfers.filter(x=>x.buf!=null&&(x.dep==null||x.dep>t-30)),crit=xs.length?xs.reduce((m,x)=>x.buf<m.buf?x:m):null;
-  let top='',cls='ride0';
+  const G=document.getElementById('gotile'),c=st.cur&&st.cur.c,a=st.cur&&st.cur.a;
+  if(!G||!c||!a)return;
+  const d=depStatus(c,a),t=now(),first=(c.sections||[])[0],r0=a.rides[0];
+  let cls='ride0',html;
   if(d&&!d.boarded){
     cls=d.level;
-    const r0=d.r0,walkTxt=d.src==='gps'?`${mins(d.need)} Min. zu Fuss`:d.src==='walk'?`${mins(d.need)} Min. Fussweg`:'';
     const cd=d.level==='bad'?(d.gone?'weg':'zu spät'):d.slack<120?mmss(d.slack):Math.floor(d.slack/60)+' Min.';
     const cdl=d.level==='bad'?'':d.src?(d.slack<120?'bis du los musst':'bis los'):'bis Abfahrt';
-    top=`<div class="hl">Abfahrt</div><div class="dep"><span class="w">${DV[d.level]}</span><span class="cd">${cd}<small>${cdl}</small></span></div>
-      <div class="dsub">${LN(r0)}<span>${hm(d.tb)} ab <b>${esc(short(stn(r0.departure).name))}</b></span>${walkTxt?`<span class="mu">· ${walkTxt}</span>`:''}${!st.me?`<span class="mu">· ohne Standort</span>`:''}</div>`;
+    const walkFirst=first&&!first.journey;
+    const how=walkFirst?`${mins(walkSec(first))} Min. zu Fuss zur <b>${esc(short(stn(first.arrival).name))}</b>`
+      :d.src==='gps'?`${mins(d.need)} Min. zu Fuss zur <b>${esc(short(stn(r0.departure).name))}</b>`
+      :`ab <b>${esc(short(stn(r0.departure).name))}</b>`;
+    html=`<div class="th"><span class="tic">${walkFirst||d.src==='gps'?WALK:icon(r0)}</span><div class="tb"><div class="ts">Abfahrt</div><div class="tt gw">${DV[d.level]}</div></div><div class="tr">${cd}<small>${cdl}</small></div></div>
+      <div class="gsub">${how} · ${LN(r0)} ${hm(d.tb)}${!st.me&&!walkFirst?' <span class="mu">· ohne Standort</span>':''}</div>`;
     if(d.level==='bad'){const n=nextOk();
-      if(n)top+=`<div class="alt">Nächste: ${n.a.rides.map(r=>LN(r)).join(' ')} <b>${hm(n.d.tb)}</b> <span class="mu">${DV[n.d.level]}</span><button type="button" data-k="${esc(ckey(n.c))}">Anzeigen</button></div>`}
+      if(n)html+=`<div class="alt">Nächste: ${n.a.rides.map(r=>LN(r)).join(' ')} <b>${hm(n.d.tb)}</b> <span class="mu">${DV[n.d.level]}</span><button type="button" data-k="${esc(ckey(n.c))}">Anzeigen</button></div>`}
+    const w=walkOpts(c).filter(k=>arr(k.to)!=null&&arr(c.to)-arr(k.to)>=300).sort((x,y)=>arr(x.to)-arr(y.to))[0];
+    if(w)html+=`<div class="tip">${WALK}<span>Mit Fussweg <b>${Math.round((arr(c.to)-arr(w.to))/60)} Min. früher</b>: ${lnsOf(w)} an ${hm(arr(w.to))}</span><button type="button" data-view="alt">Ansehen</button></div>`;
   } else {
     const cr=a.rides.find(r=>arr(r.arrival)!=null&&t<arr(r.arrival))||a.rides[a.rides.length-1];
-    cls=crit?lvl(crit.buf):'ride0';
-    top=`<div class="hl">Unterwegs</div><div class="dep"><span class="w sm">${LN(cr)} aussteigen: ${esc(short(stn(cr.arrival).name))}</span><span class="cd">${hm(arr(cr.arrival))}<small>Ankunft dort</small></span></div>`;
+    html=`<div class="th"><span class="tic">${icon(cr)}</span><div class="tb"><div class="ts">Unterwegs</div><div class="tt">${LN(cr)} aussteigen: ${esc(short(stn(cr.arrival).name))}</div></div><div class="tr">${hm(arr(cr.arrival))}<small>dort an</small></div></div>`;
   }
-  let xr='';
-  if(crit){
-    const L=lvl(crit.buf);
-    xr=`<div class="xr ${L}"><span class="xw">${LV[L]}</span><span class="xt"><span class="hl">Umstieg${a.xfers.length>1?'e ('+a.xfers.length+')':''}</span>${bufTxt(crit.buf)} in ${esc(short(crit.at))}</span></div>`;
-    if((L==='bad'||L==='warn')&&st.planB&&st.planB.list.length){const o=st.planB.list[0];
-      xr+=`<div class="alt">${L==='bad'?'Nimm stattdessen':'Falls verpasst'}: ${LN(o.r)} <b>${hm(dep(o.r.departure))}</b> ab ${esc(short(st.planB.x.at))} · an ${hm(arr(o.k.to))}</div>`}
-  } else if(a.rides.length===1) xr=`<div class="xr ride0"><span class="xt"><span class="hl">Umstieg</span>keiner – direkt ans Ziel</span></div>`;
-  let tip='';
-  if(d&&!d.boarded){const w=walkOpts(c).filter(k=>arr(k.to)!=null&&arr(c.to)-arr(k.to)>=300).sort((x,y)=>arr(x.to)-arr(y.to))[0];
-    if(w)tip=`<div class="tip">${WALK}<span>Mit Fussweg <b>${Math.round((arr(c.to)-arr(w.to))/60)} Min. früher</b>: ${lnsOf(w)} an ${hm(arr(w.to))}</span><button type="button" data-view="alt">Ansehen</button></div>`}
-  const html=`<div class="hero ${cls}">${top}${xr}${tip}<div class="arrrow"><span>Ankunft ${esc(short(stn(c.to).name))}</span><b>${hm(arr(c.to))}</b></div></div>`;
-  if(html!==st.heroSig){H.innerHTML=html;st.heroSig=html}
-  /* Renn!: gelb blinken + vibrieren, einmal beim Wechsel */
+  const sig=cls+html;
+  if(sig!==st.heroSig){G.className='tile gst '+cls+(G.classList.contains('blink')?' blink':'');G.innerHTML=html;st.heroSig=sig}
   const lv=d&&!d.boarded?d.level:'';
   if(lv==='renn'&&(st.lastDep!=='renn'||st.lastDepKey!==st.selKey)){
-    H.classList.remove('blink');void H.offsetWidth;H.classList.add('blink');
-    clearTimeout(st.blinkT);st.blinkT=setTimeout(()=>H.classList.remove('blink'),4200);
+    G.classList.remove('blink');void G.offsetWidth;G.classList.add('blink');
+    clearTimeout(st.blinkT);st.blinkT=setTimeout(()=>{const g=document.getElementById('gotile');if(g)g.classList.remove('blink')},4200);
     try{navigator.vibrate&&navigator.vibrate([250,120,250,120,400])}catch(e){}
   }
   st.lastDep=lv;st.lastDepKey=st.selKey;
@@ -660,8 +663,9 @@ function renderFocus(c,a){
   const F=$('#focus');st.band=[];
   if(!c||!a){F.innerHTML='';renderAlts(null,null);return}
   const parts=[];let k=-1;
-  (c.sections||[]).forEach(s=>{
+  (c.sections||[]).forEach((s,si)=>{
     if(!s.journey){
+      if(si===0)return;
       const m=mins(walkSec(s)),to=esc(short(stn(s.arrival).name));
       parts.push(`<div class="tile walk"><span class="tic">${WALK}</span><div class="tb"><div class="tt">${m} Min. zu Fuss</div><div class="ts">${k<0?'zur Haltestelle':'bis'} ${to}</div></div>${k<0?`<div class="tr">${hm(dep(s.departure))}<small>los</small></div>`:''}</div>`);
       return;
@@ -671,10 +675,11 @@ function renderFocus(c,a){
       <div class="tr">${hm(dep(r.departure))}<small>an ${hm(arr(r.arrival))}</small></div></div><div class="now"></div><div class="track"></div></div>`);
     const x=a.xfers[k];
     if(x){const L=lvl(x.buf),wk=x.walk&&x.fromAt!==x.at;
-      parts.push(`<div class="tile xfer ${L}"><div class="tb"><div class="ts">Umsteigen${wk?' · '+mins(x.walk)+' Min. zu Fuss':''}</div><div class="tt">${wk?esc(short(x.fromAt))+' → '+esc(short(x.at)):esc(short(x.at))}</div></div><div class="tr">${LV[L]}<small>${bufTxt(x.buf)}</small></div></div>`)}
+      const fb=(L==='bad'||L==='warn')&&k===0&&st.planB&&st.planB.list.length?st.planB.list[0]:null;
+      parts.push(`<div class="tile xfer ${L}"><div class="th"><div class="tb"><div class="ts">Umsteigen${wk?' · '+mins(x.walk)+' Min. zu Fuss':''}</div><div class="tt">${wk?esc(short(x.fromAt))+' → '+esc(short(x.at)):esc(short(x.at))}</div></div><div class="tr">${LV[L]}<small>${bufTxt(x.buf)}</small></div></div>${fb?`<div class="gsub">Falls verpasst: ${LN(fb.r)} <b>${hm(dep(fb.r.departure))}</b> · an ${hm(arr(fb.k.to))}</div>`:''}</div>`)}
   });
   parts.push(`<div class="tile end"><span class="tic"></span><div class="tb"><div class="ts">Ankunft</div><div class="tt">${esc(short(stn(c.to).name))}</div></div><div class="tr">${hm(arr(c.to))}</div></div>`);
-  F.innerHTML='<div class="tiles">'+parts.join('<i class="tarrow"></i>')+'</div>';
+  F.innerHTML='<div class="tiles"><i class="tarrow" style="margin-top:-9px"></i>'+parts.join('<i class="tarrow"></i>')+'</div>';st.heroSig='';
   F.querySelectorAll('.tile.ride').forEach(el=>{const r=a.rides[+el.dataset.i];st.band.push({r,track:el.querySelector('.track'),now:el.querySelector('.now'),sig:'',dot:null})});
   renderAlts(c,a);
   tick();
@@ -876,7 +881,7 @@ $('#alts').addEventListener('click',e=>{const s=e.target.closest('button[data-se
   if(!st.conns.some(c=>ckey(c)===b.dataset.wk)){st.conns.push(k);st.conns.sort((x,y)=>(dep(x.from)??0)-(dep(y.from)??0))}
   selectKey(b.dataset.wk)});
 $('#list').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick(e.target)}});
-$('#hero').addEventListener('click',e=>{const v=e.target.closest('button[data-view]');if(v){setView(v.dataset.view);return}const b=e.target.closest('button[data-k]');if(b)selectKey(b.dataset.k)});
+$('#go').addEventListener('click',e=>{const v=e.target.closest('button[data-view]');if(v){setView(v.dataset.view);return}const b=e.target.closest('button[data-k]');if(b)selectKey(b.dataset.k)});
 /* Standort: nächste Haltestellen + Abfahrts-Ampel */
 let watching=false;
 function locate(manual){
