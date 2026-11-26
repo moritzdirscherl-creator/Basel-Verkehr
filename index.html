@@ -328,7 +328,7 @@ const WALK='<svg viewBox="0 0 24 24"><circle cx="13.5" cy="3.8" r="2.1"/><path d
 const mins=s=>Math.max(1,Math.round(s/60));
 const icon=r=>/^(B|NFB|BUS|KB)$/i.test(r.journey.category||'')?ICON.B:ICON.T;
 const st={tn:0,userMoved:0,routePts:[],walkFallback:false,raw:[],from:'',to:'',time:new Date(),conns:[],selKey:null,demo:false,live:false,updated:0,planB:null,me:null,
-  prog:new Map(),fitKey:'',veh:[],band:[],busy:false,pending:false,appr:new Map(),orig:new Map()};
+  prog:new Map(),apprState:new Map(),apprAt:new Map(),fitKey:'',veh:[],band:[],busy:false,pending:false,appr:new Map(),orig:new Map()};
 
 function walkSec(s){
   const a=s.departure&&s.departure.departureTimestamp,b=s.arrival&&s.arrival.arrivalTimestamp;
@@ -440,7 +440,7 @@ async function load(fresh){
   if(st.busy){if(fresh)st.pending=true;return}
   st.busy=true;
   try{
-    if(fresh){st.time=new Date();st.selKey=null;st.builtAt=0;st.built=[];st.prog.clear();st.fitKey='';st.appr.clear();st.planB=null}
+    if(fresh){st.time=new Date();st.selKey=null;st.builtAt=0;st.built=[];st.prog.clear();st.fitKey='';st.appr.clear();st.apprState.clear();st.apprAt.clear();st.planB=null}
     setStatus('Lade …');
     if(!st.demo){
       const q=new URLSearchParams({from:st.from,to:st.to,limit:'10',date:ymd(st.time),time:hhmm(st.time)});
@@ -512,41 +512,35 @@ async function loadApproaches(){
 async function loadApproach(r){
   const d=dep(r.departure),dp=r.departure&&r.departure.departureTimestamp;if(!d||!dp)return;
   if(d<now()-60||d-now()>50*60)return;
-  const j=r.journey,bName=stn(r.departure).name,bId=String(stn(r.departure).id||'');
+  const key=vkey(r);if(st.apprState.has(key)&&now()-(st.apprAt.get(key)||0)<60)return;st.apprAt.set(key,now());
+  const j=r.journey,B=String(stn(r.departure).id||'');if(!B)return;
   const same=e=>String(e.number)===String(j.number)&&e.category===j.category;
-  const hasB=pl=>(pl||[]).findIndex(p=>String(stn(p).id)===bId);
-  /* 1) Startpunkt: an der Zielhaltestelle das Fahrzeug derselben Linie suchen, das in Gegenrichtung DURCH deine Haltestelle fährt */
-  const okey=j.category+j.number+'>'+j.to+'@'+bId;
-  let o=st.orig.get(okey);
-  if(o===undefined){
-    o=null;
-    try{
-      const f=['number','category','to','passList/station/id','passList/departureTimestamp','passList/arrivalTimestamp'].map(x=>'&fields[]=stationboard/'+x).join('');
-      const sb=await getJSON(API+'stationboard?'+new URLSearchParams({station:j.to,limit:'30'})+f);
-      const m=(sb.stationboard||[]).find(e=>same(e)&&hasB(e.passList)>=0);
-      if(m){const pl=m.passList,i=hasB(pl),last=pl[pl.length-1];
-        const travel=(last.arrivalTimestamp&&pl[i].departureTimestamp)?last.arrivalTimestamp-pl[i].departureTimestamp:30*60;
-        o={origin:m.to,travel:Math.max(0,travel)}}
-    }catch(e){}
-    st.orig.set(okey,o);
-  }
-  if(!o||!o.origin||o.origin===bName)return;
-  /* 2) Abfahrtstafel am Startpunkt: dieselbe Fahrt (gleicher Name) mit allen Haltestellen + Prognosen */
-  const t0=new Date((dp-o.travel-12*60)*1000);
-  try{
-    const sb=await getJSON(API+'stationboard?'+new URLSearchParams({station:o.origin,limit:'25',datetime:ymd(t0)+' '+hhmm(t0)})+'&fields[]=stationboard/name&fields[]=stationboard/number&fields[]=stationboard/category&fields[]=stationboard/passList');
-    const m=(sb.stationboard||[]).find(e=>same(e)&&e.name===j.name);
-    if(m){const i=hasB(m.passList);if(i>0){st.appr.set(vkey(r),m.passList.slice(0,i+1));return}}
-  }catch(e){}
-  /* 3) Rückfall: Verbindungssuche Startpunkt → deine Haltestelle mit Ankunftszeit */
-  const q=new URLSearchParams({from:o.origin,to:bId||bName,limit:'8',isArrivalTime:'1',date:ymd(new Date(dp*1000)),time:hhmm(new Date((dp+120)*1000))});
-  const res=await getJSON(API+'connections?'+q);
-  for(const k of res.connections||[])for(const s of k.sections||[]){
-    if(s.journey&&s.journey.name===j.name&&String(s.journey.number)===String(j.number)){
-      const pl=s.journey.passList||[],i=hasB(pl);
-      if(i>0){st.appr.set(vkey(r),pl.slice(0,i+1));return}
+  const pl0=j.passList||[],nextId=pl0[1]?String(stn(pl0[1]).id):'';
+  /* 1) Gegenrichtung derselben Linie an DEINER Haltestelle (per ID) -> Haltestellen vor dir */
+  const okey=j.category+j.number+'|'+B+'|'+nextId;
+  let seq=st.orig.get(okey);
+  if(seq===undefined){
+    seq=null;
+    for(const tt of [now(),now()+900,now()+1800]){
+      const L=await board(B,tt);
+      const m=L.find(e=>same(e)&&(e.passList||[]).length>2&&!(e.passList||[]).some(p=>String(stn(p).id)===nextId));
+      if(m){seq=m.passList.slice(1).map(p=>String(stn(p).id||''));break}
     }
+    st.orig.set(okey,seq);
   }
+  if(!seq||!seq.length){st.apprState.set(key,'unknown');return}
+  /* 2) dieselbe Fahrt einige Haltestellen weiter vorne suchen */
+  const tried=new Set();
+  for(const k of [10,6,3,1].map(x=>Math.min(seq.length,x))){
+    if(tried.has(k))continue;tried.add(k);
+    const A=seq[k-1];if(!A)continue;
+    const L=await board(A,dp-k*150-600);
+    const m=L.find(e=>e.name===j.name&&same(e));
+    if(m){const i=(m.passList||[]).findIndex(p=>String(stn(p).id)===B);
+      if(i>0){const pl=m.passList.slice(0,i+1);if(m.stop)pl[0]=Object.assign({},pl[0],m.stop);st.appr.set(key,pl);st.apprState.set(key,'ok');return}}
+  }
+  /* nirgends davor gefunden: Fahrt beginnt an deiner Haltestelle */
+  st.apprState.set(key,'start');
 }
 
 /* Haltestellenliste eines Fahrzeugs: Anfahrt + eigene Strecke; b = Index deines Einstiegs */
@@ -721,7 +715,13 @@ function legStatus(P,r){
   const i=Math.floor(P.prog),f=P.prog-i,where=f<0.15?`bei ${at(i)}`:f>0.85?`kurz vor ${at(i+1)}`:`zwischen ${at(i)} und ${at(i+1)}`;
   if(P.done||P.prog>=P.n)return'angekommen';
   if(P.prog<P.b)return`Jetzt ${where} <em>· noch ${pl(P.b-i)} bis zu dir · ${P.waitMin??0} Min.</em>`;
-  if(P.waitMin!=null)return P.b>0?`Steht an deiner Haltestelle <em>· fährt in ${P.waitMin} Min.</em>`:`Abfahrt in ${P.waitMin} Min. <em>· Position noch unbekannt</em>`;
+  if(P.waitMin!=null){
+    if(P.b>0)return`Steht an deiner Haltestelle <em>· fährt in ${P.waitMin} Min.</em>`;
+    const s=st.apprState.get(vkey(r));
+    if(s==='start')return`Startet an deiner Haltestelle <em>· fährt in ${P.waitMin} Min.</em>`;
+    if(s==='unknown')return`Abfahrt in ${P.waitMin} Min. <em>· Position nicht verfügbar</em>`;
+    return`Abfahrt in ${P.waitMin} Min. <em>· suche Position …</em>`;
+  }
   return`Unterwegs, ${where} <em>· noch ${pl(P.n-i)} bis ${esc(short(stn(r.arrival).name))}</em>`;
 }
 
