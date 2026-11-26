@@ -1,0 +1,26 @@
+name: Linienverläufe aktualisieren
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * 1'
+  push:
+    paths:
+      - 'tools/build_shapes.py'
+      - '.github/workflows/shapes.yml'
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python tools/build_shapes.py
+      - name: shapes.json einchecken
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add shapes.json
+          git diff --cached --quiet || (git commit -m "Linienverläufe aus OpenStreetMap aktualisiert" && git push)
