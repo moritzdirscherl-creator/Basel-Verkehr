@@ -131,7 +131,7 @@ main{flex:1;display:flex;flex-direction:column}
 #list{order:6}
 main.v-plan #map,main.v-plan #alts,main.v-plan #list{display:none}
 main.v-map #focus,main.v-map #alts,main.v-map #list{display:none}
-main.v-alt #map,main.v-alt #focus{display:none}
+main.v-alt #map,main.v-alt #focus,main.v-alt #list{display:none}
 #hero:empty,#focus:empty,#alts:empty{display:none}
 @media(min-width:900px){
   body{height:100vh}
@@ -361,8 +361,8 @@ function tidy(list,keep,walkMode){
 /* Fussweg-Varianten der Hauptsuche, die früher ankommen als die gewählte Verbindung */
 function walkOpts(sel){
   if(!sel||!st.raw.length)return[];
-  const aSel=arr(sel.to),t=now();
-  return tidy(st.raw,undefined,true).filter(c=>{const d=dep(c.from),a=arr(c.to);return d!=null&&d>=t-30&&a!=null&&aSel!=null&&a<aSel-60}).slice(0,2);
+  const t=now();
+  return tidy(st.raw,undefined,true).filter(c=>{const d=dep(c.from);return d!=null&&d>=t-30}).slice(0,3);
 }
 function selIndex(){const i=st.conns.findIndex(c=>ckey(c)===st.selKey);return i<0?0:i}
 
@@ -373,15 +373,70 @@ async function getJSON(url){
   finally{clearTimeout(to)}
 }
 
+/* ---------- Fusswege durch Tram/Bus ersetzen (Abfahrtstafel) ---------- */
+const BC=new Map();
+function board(id,t){
+  const b=Math.floor(t/300),k=id+'|'+b,c=BC.get(k);
+  if(c&&now()-c.at<90)return c.p;
+  const d=new Date(b*300*1000);
+  const p=getJSON(API+'stationboard?'+new URLSearchParams({id,limit:'40',datetime:ymd(d)+' '+hhmm(d)})).then(j=>j.stationboard||[]).catch(()=>[]);
+  BC.set(k,{at:now(),p});return p;
+}
+function secFromBoard(e,j){
+  const pl=e.passList.slice(0,j+1);
+  if(e.stop)pl[0]=Object.assign({},pl[0],e.stop);
+  return{journey:{name:e.name,category:e.category,number:e.number,to:e.to,passList:pl},departure:pl[0],arrival:pl[j]};
+}
+async function hops(A,B,t,n=1,span=2){
+  const found=[],seen=new Set();
+  for(let k=0;k<span&&found.length<n;k++){
+    const L=await board(A,t+k*900);
+    for(const e of L){const d=dep(e.stop);if(d==null||d<t)continue;
+      const j=(e.passList||[]).findIndex((p,i)=>i>0&&String(stn(p).id)===B);
+      if(j>0){const s=secFromBoard(e,j),v=vkey(s);if(!seen.has(v)){seen.add(v);found.push(s)}}}
+  }
+  return found.sort((x,y)=>dep(x.departure)-dep(y.departure)).slice(0,n);
+}
+async function rebuild(c,t0){
+  const out=[];let t=t0;
+  for(const s of c.sections||[]){
+    const A=String(stn(s.departure).id||''),B=String(stn(s.arrival).id||'');
+    if(!s.journey&&(A===B||!A||!B))continue;
+    const xf=out.length?60:0;
+    if(s.journey&&dep(s.departure)!=null&&dep(s.departure)>=t+xf){out.push(s);t=arr(s.arrival)??t;continue}
+    const [hp]=await hops(A,B,t+xf);
+    if(!hp){if(s.journey)return null;out.push(s);t+=walkSec(s);continue}
+    out.push(hp);t=arr(hp.arrival)??t;
+  }
+  if(!out.length||out.every(s=>!s.journey))return null;
+  return{from:out[0].departure,to:out[out.length-1].arrival,sections:out,built:true};
+}
+async function buildRoutes(raw){
+  if(!raw.length)return[];
+  const t=now(),O=String(stn(raw[0].from).id||''),Z=String(stn(raw[0].to).id||'');
+  const jobs=raw.filter(c=>analyse(c).walkTotal>0).slice(0,8).map(c=>{
+    const f=(c.sections||[])[0],t0=Math.max(t-30,(dep(c.from)??t)-(f&&!f.journey?walkSec(f):0));
+    return rebuild(c,t0).catch(()=>null)});
+  /* direkte Fahrten Start -> Ziel */
+  if(O&&Z)jobs.push(hops(O,Z,t-30,5,3).then(L=>L.map(s=>({from:s.departure,to:s.arrival,sections:[s],built:true}))).catch(()=>[]));
+  return (await Promise.all(jobs)).flat().filter(Boolean);
+}
 async function load(fresh){
   if(st.busy){if(fresh)st.pending=true;return}
   st.busy=true;
   try{
-    if(fresh){st.time=new Date();st.selKey=null;st.prog.clear();st.fitKey='';st.appr.clear();st.planB=null}
+    if(fresh){st.time=new Date();st.selKey=null;st.builtAt=0;st.built=[];st.prog.clear();st.fitKey='';st.appr.clear();st.planB=null}
     setStatus('Lade …');
     if(!st.demo){
       const q=new URLSearchParams({from:st.from,to:st.to,limit:'10',date:ymd(st.time),time:hhmm(st.time)});
-      try{const j=await getJSON(API+'connections?'+q);st.raw=j.connections||[];st.conns=tidy(st.raw,st.selKey);st.live=true;addTiles()}
+      try{const j=await getJSON(API+'connections?'+q);let raw=j.connections||[];
+        /* Liste auffüllen, damit immer genug kommende Verbindungen da sind */
+        const up=tidy(raw,undefined).filter(c=>(dep(c.from)??0)>now()).length;
+        if(up<4&&raw.length){const last=Math.max(...raw.map(c=>c.from&&c.from.departureTimestamp||0));
+          if(last){const d2=new Date((last+60)*1000);try{const j2=await getJSON(API+'connections?'+new URLSearchParams({from:st.from,to:st.to,limit:'10',date:ymd(d2),time:hhmm(d2)}));raw=raw.concat(j2.connections||[])}catch(e){}}}
+        if(fresh)setStatus('Suche Tram-Verbindungen …');
+        if(fresh||!st.builtAt||now()-st.builtAt>90){try{st.built=await buildRoutes(raw)}catch(e){st.built=[]}st.builtAt=now()}
+        st.raw=raw;st.conns=tidy(raw.concat(st.built||[]),st.selKey);st.live=true;addTiles()}
       catch(e){
         if(e.http){setStatus(`Fehler ${e.http} – API nicht erreichbar oder Limit erreicht`);return}
         if(st.live){setStatus('Keine Verbindung zur API – zeige letzten Stand');return}
@@ -628,8 +683,10 @@ function renderAlts(c,a){
     h+='</div>';
   }
   if(wo.length){
-    h+=`<div class="altsec"><h3>Mit Fussweg früher da<small>ab ${esc(short(stn(c.from).name))} bzw. in der Nähe</small></h3>`+wo.map(k=>`<div class="atile walky"><span class="num">${hm(dep(k.from))}</span><span class="lns">${lnsOf(k)}</span><span class="ar">${Math.round((arr(c.to)-arr(k.to))/60)} Min. früher<b>${hm(arr(k.to))}</b></span><button type="button" class="pbgo" data-wk="${esc(ckey(k))}">Anzeigen</button></div>`).join('')+'</div>';
+    h+=`<div class="altsec"><h3>Mit Fussweg<small>falls du lieber läufst</small></h3>`+wo.map(k=>{const df=Math.round((arr(c.to)-arr(k.to))/60);return`<div class="atile walky"><span class="num">${hm(dep(k.from))}</span><span class="lns">${lnsOf(k)}</span><span class="ar">${df>0?df+' Min. früher':df<0?(-df)+' Min. später':'gleich schnell'}<b>${hm(arr(k.to))}</b></span><button type="button" class="pbgo" data-wk="${esc(ckey(k))}">Anzeigen</button></div>`}).join('')+'</div>';
   }
+  const nx=st.conns.filter(k=>k!==c&&(dep(k.from)??0)>now()-30).slice(0,4);
+  if(nx.length)h=`<div class="altsec"><h3>Spätere Verbindungen<small>ohne Fussweg</small></h3>`+nx.map(k=>{const ak=analyse(k);return`<div class="atile"><span class="num">${hm(dep(k.from))}</span><span class="lns">${ak.rides.map(r=>LN(r)).join('')}</span><span class="ts">${ak.level==='direct'?'direkt':'Umstieg: '+LV[ak.level]}</span><span class="ar">Ankunft<b>${hm(arr(k.to))}</b></span><button type="button" class="pbgo" data-sel="${esc(ckey(k))}">Anzeigen</button></div>`}).join('')+'</div>'+h;
   E.innerHTML=h;
   const warn=a.level==='bad'||a.level==='warn';
   btn.innerHTML='Alternativen'+(warn?`<span class="badge ${a.level==='bad'?'bad':''}"></span>`:'');
@@ -784,7 +841,8 @@ const selectKey=k=>{if(!k||k===st.selKey)return;st.selKey=k;st.planB=null;st.las
   window.scrollTo({top:0,behavior:'smooth'});Promise.all([loadPlanB(),loadApproaches()]).then(render)};
 const pick=el=>{const a=el.closest('article');if(!a)return;selectKey(a.dataset.k);setView('plan')};
 $('#list').addEventListener('click',e=>pick(e.target));
-$('#alts').addEventListener('click',e=>{const b=e.target.closest('button[data-wk]');if(!b)return;
+$('#alts').addEventListener('click',e=>{const s=e.target.closest('button[data-sel]');if(s){selectKey(s.dataset.sel);setView('plan');return}
+  const b=e.target.closest('button[data-wk]');if(!b)return;
   const k=(st.walkOptsCur||[]).find(c=>ckey(c)===b.dataset.wk);if(!k)return;
   if(!st.conns.some(c=>ckey(c)===b.dataset.wk)){st.conns.push(k);st.conns.sort((x,y)=>(dep(x.from)??0)-(dep(y.from)??0))}
   selectKey(b.dataset.wk)});
