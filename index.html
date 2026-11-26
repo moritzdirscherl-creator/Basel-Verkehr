@@ -790,7 +790,7 @@ function tick(){
     el.style.display='';v.m.setLatLng(P.p);v.lastP=P.p;
     const b=box.querySelector('i'),txt=P.waitMin!=null?`${P.waitMin}'`:'';
     if(b&&b.textContent!==txt)b.textContent=txt;
-    box.classList.toggle('wait',P.b===0&&P.waitMin!=null);
+    box.classList.toggle('wait',P.b===0&&P.waitMin!=null&&st.apprState.get(vkey(v.r))!=='start');
   }
   if(map&&++st.tn%3===0&&now()-st.userMoved>25){
     const vis=st.veh.filter(v=>!v.ghost&&v.lastP&&v.m.getElement()&&v.m.getElement().style.display!=='none');
@@ -801,7 +801,7 @@ function tick(){
     const P=pos(o.r);if(!P)continue;
     const sig=P.n+'|'+P.b;if(o.sig!==sig){drawTrack(o,P);o.sig=sig}
     o.dot.style.left=xpos(P.prog,P.b,P.n)+'%';
-    o.dot.classList.toggle('unk',P.b===0&&P.waitMin!=null);
+    o.dot.classList.toggle('unk',P.b===0&&P.waitMin!=null&&st.apprState.get(vkey(o.r))!=='start');
     const s=legStatus(P,o.r);if(o.now.innerHTML!==s)o.now.innerHTML=s;
   }
   renderHero();
