@@ -359,12 +359,13 @@ function analyse(c){
   const min=bufs.length?Math.min(...bufs):null;
   return {rides,xfers,walks,reach,min,level:lvl(min),valid,maxWalk,walkTotal};
 }
+const WMAX=5*60; /* Fusswege bis 5 Min. gelten als normale Verbindung */
 function tidy(list,keep,walkMode){
   const D=o=>dep(o.c.from)??0,A=o=>arr(o.c.to)??0;
   const all=list.map(c=>({c,a:analyse(c),k:ckey(c)})).filter(o=>o.a.valid||o.k===keep);
   let b;
-  if(walkMode)b=all.filter(o=>o.a.walkTotal>0);
-  else{const noW=all.filter(o=>o.a.walkTotal===0||o.k===keep);
+  if(walkMode)b=all.filter(o=>o.a.maxWalk>WMAX);
+  else{const noW=all.filter(o=>o.a.maxWalk<=WMAX||o.k===keep);
     if(keep!==undefined)st.walkFallback=!noW.length&&all.length>0;b=noW.length?noW:all}
   const seen=new Set();b=b.filter(o=>!seen.has(o.k)&&seen.add(o.k));
   b=b.filter(o=>o.k===keep||!b.some(p=>p!==o&&D(p)>=D(o)&&A(p)<=A(o)&&(D(p)>D(o)||A(p)<A(o)||p.a.walkTotal<o.a.walkTotal)));
@@ -572,7 +573,7 @@ function pos(r){
 function render(){
   const A=st.conns.map(analyse),si=selIndex();
   const best=A[0]&&A[0].level==='bad'?A.findIndex(a=>a.level!=='bad'):-1;
-  $('#list').innerHTML=st.conns.length?(st.walkFallback?`<p class="note">Ohne Fussweg gibt es hier keine Verbindung – zeige Varianten mit Fussweg.</p>`:'')
+  $('#list').innerHTML=st.conns.length?(st.walkFallback?`<p class="note">Keine Verbindung mit höchstens 5 Min. Fussweg – zeige Varianten mit längerem Fussweg.</p>`:'')
     +'<h2>Andere Verbindungen ab jetzt · antippen</h2>'+st.conns.map((c,i)=>card(c,A[i],i===si,i===best)).join('')
     +'<p class="foot">Fahrzeugpositionen berechnet aus Fahrplan und Echtzeit-Prognose (kein GPS). Daten: transport.opendata.ch</p>'
     :'<p class="empty">Keine Verbindung gefunden. Haltestellennamen prüfen (z.B. «Basel, Barfüsserplatz»).</p>';
@@ -700,10 +701,10 @@ function renderAlts(c,a){
     h+='</div>';
   }
   if(wo.length){
-    h+=`<div class="altsec"><h3>Mit Fussweg<small>falls du lieber läufst</small></h3>`+wo.map(k=>{const df=Math.round((arr(c.to)-arr(k.to))/60);return`<div class="atile walky"><span class="num">${hm(dep(k.from))}</span><span class="lns">${lnsOf(k)}</span><span class="ar">${df>0?df+' Min. früher':df<0?(-df)+' Min. später':'gleich schnell'}<b>${hm(arr(k.to))}</b></span><button type="button" class="pbgo" data-wk="${esc(ckey(k))}">Anzeigen</button></div>`}).join('')+'</div>';
+    h+=`<div class="altsec"><h3>Mit längerem Fussweg<small>über 5 Min. zu Fuss</small></h3>`+wo.map(k=>{const df=Math.round((arr(c.to)-arr(k.to))/60);return`<div class="atile walky"><span class="num">${hm(dep(k.from))}</span><span class="lns">${lnsOf(k)}</span><span class="ar">${df>0?df+' Min. früher':df<0?(-df)+' Min. später':'gleich schnell'}<b>${hm(arr(k.to))}</b></span><button type="button" class="pbgo" data-wk="${esc(ckey(k))}">Anzeigen</button></div>`}).join('')+'</div>';
   }
   const nx=st.conns.filter(k=>k!==c&&(dep(k.from)??0)>now()-30).slice(0,4);
-  if(nx.length)h=`<div class="altsec"><h3>Spätere Verbindungen<small>ohne Fussweg</small></h3>`+nx.map(k=>{const ak=analyse(k);return`<div class="atile"><span class="num">${hm(dep(k.from))}</span><span class="lns">${ak.rides.map(r=>LN(r)).join('')}</span><span class="ts">${ak.level==='direct'?'direkt':'Umstieg: '+LV[ak.level]}</span><span class="ar">Ankunft<b>${hm(arr(k.to))}</b></span><button type="button" class="pbgo" data-sel="${esc(ckey(k))}">Anzeigen</button></div>`}).join('')+'</div>'+h;
+  if(nx.length)h=`<div class="altsec"><h3>Spätere Verbindungen</h3>`+nx.map(k=>{const ak=analyse(k);return`<div class="atile"><span class="num">${hm(dep(k.from))}</span><span class="lns">${ak.rides.map(r=>LN(r)).join('')}</span><span class="ts">${ak.level==='direct'?'direkt':'Umstieg: '+LV[ak.level]}</span><span class="ar">Ankunft<b>${hm(arr(k.to))}</b></span><button type="button" class="pbgo" data-sel="${esc(ckey(k))}">Anzeigen</button></div>`}).join('')+'</div>'+h;
   E.innerHTML=h;
   const warn=a.level==='bad'||a.level==='warn';
   btn.innerHTML='Alternativen'+(warn?`<span class="badge ${a.level==='bad'?'bad':''}"></span>`:'');
