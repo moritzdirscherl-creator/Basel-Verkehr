@@ -80,6 +80,9 @@ article.sel{border-color:var(--acc);box-shadow:inset 4px 0 0 var(--acc)}
 .leaflet-bar a{display:block;width:36px;height:36px;line-height:36px;text-align:center;background:var(--card);color:var(--ink);text-decoration:none;font:600 20px/36px system-ui}
 .leaflet-control-attribution{font-size:11px;background:rgba(255,255,255,.8);color:#333;padding:0 5px}
 .leaflet-control-attribution a{color:#333}
+.leaflet-tile-pane{filter:grayscale(1) brightness(1.06) contrast(.88)}
+:root[data-theme=dark] .leaflet-tile-pane{filter:grayscale(1) invert(1) brightness(.85) contrast(.8)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .leaflet-tile-pane{filter:grayscale(1) invert(1) brightness(.85) contrast(.8)}}
 .vwrap{transition:transform 1s linear}
 .leaflet-zoom-anim .vwrap{transition:none}
 .veh{position:absolute;width:22px;height:22px;left:-11px;top:-11px;border-radius:50%;background:var(--c);display:grid;place-items:center;
@@ -130,9 +133,10 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const T=s=>{if(!s)return null;const v=Date.parse(String(s).replace(/([+-]\d\d)(\d\d)$/,'$1:$2'));return isNaN(v)?null:v/1000};
 const now=()=>Date.now()/1000;
-const hm=t=>t==null?'–':new Date(t*1000).toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'});
-const ymd=d=>d.toLocaleDateString('sv-SE');
-const hhmm=d=>d.toTimeString().slice(0,5);
+const TZ={timeZone:'Europe/Zurich'};
+const hhmm=d=>d.toLocaleTimeString('de-CH',{...TZ,hour:'2-digit',minute:'2-digit',hour12:false});
+const hm=t=>t==null?'–':hhmm(new Date(t*1000));
+const ymd=d=>new Intl.DateTimeFormat('sv-SE',{...TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
 const dep=p=>p?(T(p.prognosis&&p.prognosis.departure)??(p.departureTimestamp!=null?p.departureTimestamp+(p.delay||0)*60:null)):null;
 const arr=p=>p?(T(p.prognosis&&p.prognosis.arrival)??(p.arrivalTimestamp!=null?p.arrivalTimestamp+(p.delay||0)*60:null)):null;
 const stn=p=>p&&(p.station||p.location)||{};
@@ -252,7 +256,7 @@ if(window.L){
 }
 function addTiles(){
   if(!map||tiles)return;
-  tiles=L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark()?'dark_all':'light_all'}/{z}/{x}/{y}{r}.png`,{maxZoom:19,subdomains:'abcd',attribution:'© OpenStreetMap-Mitwirkende © CARTO · Daten: transport.opendata.ch'}).addTo(map);
+  tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende · Daten: transport.opendata.ch'}).addTo(map);
 }
 const label=(p,txt)=>L.marker(p,{interactive:false,keyboard:false,icon:L.divIcon({className:'',iconSize:[0,0],html:`<div class="slab">${esc(txt)}</div>`})}).addTo(layer);
 function drawMap(a){
