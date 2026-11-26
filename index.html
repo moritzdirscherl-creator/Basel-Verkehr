@@ -34,10 +34,8 @@ button{font:600 15px Inter,sans-serif;border:0;border-radius:8px;min-height:44px
 .status b{color:var(--ink);font-weight:600}
 .demo{background:var(--soft);color:var(--muted);padding:8px max(4vw,14px);font-size:14px;display:none;border-bottom:1px solid var(--line)}
 .demo.on{display:block}
-main{flex:1;display:flex;flex-direction:column}
-#map{height:44vh;min-height:260px;background:light-dark(#eceeed,#1b1f1d)}
+#map{background:light-dark(#eceeed,#1b1f1d)}
 #list{padding:12px max(4vw,14px) 40px;display:grid;gap:10px;align-content:start}
-@media(min-width:900px){main{display:grid;grid-template-columns:minmax(0,440px) minmax(0,1fr);min-height:0}#map{height:auto;order:2}#list{order:1;overflow:auto;max-height:calc(100vh - 200px)}}
 article{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;position:relative}
 article.sel{border-color:var(--acc);box-shadow:inset 4px 0 0 var(--acc)}
 .r1{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
@@ -94,11 +92,47 @@ article.sel{border-color:var(--acc);box-shadow:inset 4px 0 0 var(--acc)}
 .veh.ghost svg{width:10px;height:10px}.veh.ghost b{left:21px;font-weight:600;color:var(--muted)}
 .slab{position:absolute;transform:translate(-50%,9px);font-weight:500!important;color:var(--muted)!important;font:600 12px Inter,sans-serif;color:light-dark(#0f1a13,#e6eee8);white-space:nowrap;text-shadow:0 0 3px light-dark(#fff,#000),0 0 3px light-dark(#fff,#000)}
 @media(prefers-reduced-motion:reduce){.vwrap{transition:none}}
+[hidden]{display:none!important}
+.sum{width:100%;margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--soft);border:1px solid var(--line);color:var(--ink);padding:0 12px;text-align:left;font-weight:600}
+.sum .edit{color:var(--muted);font-weight:500;font-size:14px;flex:none}
+main{flex:1;display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"focus" "map" "list";align-content:start}
+#focus{grid-area:focus;padding:12px max(4vw,14px) 12px}
+#focus:empty{display:none}
+#map{grid-area:map;height:36vh;min-height:240px}
+#list{grid-area:list}
+@media(min-width:900px){body{height:100vh}main{grid-template-columns:minmax(0,470px) minmax(0,1fr);grid-template-areas:"focus map" "list map";grid-template-rows:auto minmax(0,1fr);min-height:0;align-content:stretch}#map{height:auto}#list{overflow:auto;max-height:none}}
+h2{font-size:14px;font-weight:600;color:var(--muted);margin:2px 0 0}
+.fcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.fhead{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.leg{margin-top:16px}
+.lh{display:flex;align-items:center;gap:8px;font-size:14px}
+.lh .ico{width:24px;height:24px;border-radius:50%;background:var(--acc);display:grid;place-items:center;flex:none}
+.lh .ico svg{width:14px;height:14px;fill:#fff}
+.lh .dir{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lh{flex-wrap:wrap}.lh .ls{order:5;flex-basis:100%;margin:2px 0 0 32px;font-weight:600;font-size:15px}
+.track{position:relative;height:30px;margin:8px 12px 0}
+.rail{position:absolute;left:0;right:0;top:14px;height:2px;background:var(--line)}
+.rail.ride{height:4px;top:13px;background:color-mix(in srgb,var(--acc) 50%,transparent);border-radius:2px}
+.tick{position:absolute;top:10px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:var(--card);border:2px solid color-mix(in srgb,var(--acc) 70%,transparent)}
+.tick.pre{width:6px;height:6px;margin-left:-3px;top:12px;border:0;background:color-mix(in srgb,var(--muted) 45%,transparent)}
+.tick.key{width:14px;height:14px;margin-left:-7px;top:8px;border:3px solid var(--ink)}
+.track .dot{position:absolute;top:3px;width:24px;height:24px;margin-left:-12px;border-radius:50%;background:var(--acc);display:grid;place-items:center;z-index:1;transition:left 1s linear;
+  box-shadow:0 0 0 2px var(--card),0 0 12px 3px color-mix(in srgb,var(--acc) 50%,transparent)}
+.track .dot svg{width:14px;height:14px;fill:#fff}
+.track .dot.unk{opacity:.45}
+.ends{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--muted);margin-top:2px}
+.ends span:last-child{text-align:right}
+.ends b{color:var(--ink);font-weight:600;white-space:nowrap}
+.xbig{display:flex;align-items:center;gap:10px;margin-top:16px;padding:10px 12px;border-radius:10px;font-size:15px;background:var(--soft);border-left:5px solid var(--line)}
+.xbig b{margin-left:auto;white-space:nowrap;font:700 19px "Barlow Semi Condensed",sans-serif}
+.xbig.ok{border-color:var(--ok)}.xbig.warn{border-color:var(--warn)}.xbig.bad{border-color:var(--bad)}.xbig.bad b{color:var(--bad)}
+@media(prefers-reduced-motion:reduce){.track .dot{transition:none}}
 </style>
 </head>
 <body>
 <header>
   <h1>Reicht's?<span>Basel · Tram &amp; Bus live</span></h1>
+  <button type="button" id="sum" class="sum" hidden><span id="sumt"></span><span class="edit">Ändern</span></button>
   <form id="f">
     <div class="fields">
       <input id="from" list="stations" autocomplete="off" aria-label="Von" placeholder="Von (Haltestelle)">
@@ -115,8 +149,9 @@ article.sel{border-color:var(--acc);box-shadow:inset 4px 0 0 var(--acc)}
 <div class="demo" id="demo">Demo-Daten – Fahrplan-API hier nicht erreichbar (in der Claude-Vorschau normal).</div>
 <div class="status"><span id="st">Bereit</span><span>Positionen aus Fahrplan + Prognose</span></div>
 <main>
+  <section id="focus" aria-live="polite"></section>
   <div id="map" aria-label="Karte mit den Fahrzeugen der gewählten Verbindung"></div>
-  <section id="list" aria-live="polite"><p class="empty">Von und Nach eingeben, dann «Verbindungen ab jetzt».</p></section>
+  <section id="list"><p class="empty">Von und Nach eingeben, dann «Ab jetzt suchen».</p></section>
 </main>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
@@ -124,11 +159,6 @@ window.addEventListener('error',e=>{const s=document.getElementById('st');if(s)s
 window.addEventListener('unhandledrejection',e=>{const s=document.getElementById('st');if(s)s.textContent='Fehler: '+((e.reason&&e.reason.message)||e.reason);});
 {
 const API='https://transport.opendata.ch/v1/';
-const dark=()=>{const t=document.documentElement.dataset.theme;return t==='dark'||(t!=='light'&&!!(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))};
-const ACC=()=>dark()?'#8ea6c4':'#5b7798',PBC=()=>dark()?'#6f7773':'#9aa19d';
-const ICON={T:'<svg viewBox="0 0 24 24"><path d="M9 0h6v2H9zM7 3h10a2 2 0 0 1 2 2v10a3 3 0 0 1-2 2.8l1.5 2.2H16l-1.3-2H9.3L8 20H5.5L7 17.8A3 3 0 0 1 5 15V5a2 2 0 0 1 2-2zm0 3v5h10V6zm1.5 7.5a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4zm7 0a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4z"/></svg>',
-  B:'<svg viewBox="0 0 24 24"><path d="M6 2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-1 1.7V20h-2.5v-2h-9v2H5v-2.3A2 2 0 0 1 4 16V4a2 2 0 0 1 2-2zm0 3v6h12V5zm1.5 8a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6zm9 0a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6z"/></svg>'};
-const icon=r=>/^(B|NFB|BUS|KB)$/i.test(r.journey.category||'')?ICON.B:ICON.T;
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const T=s=>{if(!s)return null;const v=Date.parse(String(s).replace(/([+-]\d\d)(\d\d)$/,'$1:$2'));return isNaN(v)?null:v/1000};
@@ -146,10 +176,16 @@ const vkey=r=>(r.journey.name||r.journey.number)+'@'+(r.departure&&r.departure.d
 const ckey=c=>(c.sections||[]).filter(s=>s.journey).map(vkey).join('|');
 const lvl=b=>b==null?'direct':b<0?'bad':b<120?'warn':'ok';
 const LV={ok:'Reicht',warn:'Knapp',bad:'Reicht nicht',direct:'Direkt'};
-const LC={ok:'#1f9d55',warn:'#d99a00',bad:'#d23b2f',direct:'#56665c'};
+const LC={ok:'#1f9d55',warn:'#e0a100',bad:'#d23b2f',direct:'#69726d'};
 const hav=(a,b)=>{const R=6371e3,r=Math.PI/180,dLa=(b[0]-a[0])*r,dLo=(b[1]-a[1])*r;const h=Math.sin(dLa/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(h))};
 const bufTxt=b=>b==null?'?':b<0?`${Math.ceil(-b/60)} Min. zu spät`:b<60?'unter 1 Min. Puffer':`${Math.floor(b/60)} Min. Puffer`;
-const st={from:'',to:'',time:new Date(),conns:[],selKey:null,demo:false,updated:0,planB:null,me:null,prog:new Map(),fitKey:'',veh:[],busy:false};
+const dark=()=>{const t=document.documentElement.dataset.theme;return t==='dark'||(t!=='light'&&!!(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))};
+const ACC=()=>dark()?'#8ea6c4':'#5b7798',PBC=()=>dark()?'#6f7773':'#9aa19d';
+const ICON={T:'<svg viewBox="0 0 24 24"><path d="M9 0h6v2H9zM7 3h10a2 2 0 0 1 2 2v10a3 3 0 0 1-2 2.8l1.5 2.2H16l-1.3-2H9.3L8 20H5.5L7 17.8A3 3 0 0 1 5 15V5a2 2 0 0 1 2-2zm0 3v5h10V6zm1.5 7.5a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4zm7 0a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4z"/></svg>',
+  B:'<svg viewBox="0 0 24 24"><path d="M6 2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-1 1.7V20h-2.5v-2h-9v2H5v-2.3A2 2 0 0 1 4 16V4a2 2 0 0 1 2-2zm0 3v6h12V5zm1.5 8a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6zm9 0a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6z"/></svg>'};
+const icon=r=>/^(B|NFB|BUS|KB)$/i.test(r.journey.category||'')?ICON.B:ICON.T;
+const st={from:'',to:'',time:new Date(),conns:[],selKey:null,demo:false,live:false,updated:0,planB:null,me:null,
+  prog:new Map(),fitKey:'',veh:[],band:[],busy:false,pending:false,appr:new Map(),orig:new Map()};
 
 function walkSec(s){
   const a=s.departure&&s.departure.departureTimestamp,b=s.arrival&&s.arrival.arrivalTimestamp;
@@ -181,15 +217,16 @@ function selIndex(){const i=st.conns.findIndex(c=>ckey(c)===st.selKey);return i<
 
 async function getJSON(url){
   const ac=typeof AbortController!=='undefined'?new AbortController():null;
-  const to=setTimeout(()=>ac&&ac.abort(),7000);
+  const to=setTimeout(()=>ac&&ac.abort(),8000);
   try{const r=await fetch(url,ac?{signal:ac.signal}:{});if(!r.ok){const e=new Error('HTTP '+r.status);e.http=r.status;throw e}return await r.json()}
   finally{clearTimeout(to)}
 }
 
 async function load(fresh){
-  if(st.busy)return;st.busy=true;
+  if(st.busy){if(fresh)st.pending=true;return}
+  st.busy=true;
   try{
-    if(fresh){st.time=new Date();st.selKey=null;st.prog.clear();st.fitKey=''}
+    if(fresh){st.time=new Date();st.selKey=null;st.prog.clear();st.fitKey='';st.appr.clear();st.planB=null}
     setStatus('Lade …');
     if(!st.demo){
       const q=new URLSearchParams({from:st.from,to:st.to,limit:'5',date:ymd(st.time),time:hhmm(st.time)});
@@ -201,16 +238,21 @@ async function load(fresh){
       }
     }
     if(st.demo)st.conns=demoConns();
-    if(st.selKey==null&&st.conns[0])st.selKey=ckey(st.conns[0]);
+    if(fresh&&st.conns.length)compact(true);
+    if(!st.conns.some(c=>ckey(c)===st.selKey))st.selKey=st.conns[0]?ckey(st.conns[0]):null;
     st.updated=now();
-    await loadPlanB();
     render();
-  }finally{st.busy=false}
+    await Promise.all([loadPlanB(),loadApproaches()]);
+    render();
+  }finally{
+    st.busy=false;
+    if(st.pending){st.pending=false;load(true)}
+  }
 }
 
 async function loadPlanB(){
-  st.planB=null;const c=st.conns[selIndex()];if(!c)return;
-  const x=analyse(c).xfers[0];if(!x||x.arr==null)return;
+  const c=st.conns[selIndex()];if(!c){st.planB=null;return}
+  const x=analyse(c).xfers[0];if(!x||x.arr==null){st.planB=null;return}
   let list;
   if(st.demo)list=demoPlanB();
   else{
@@ -224,29 +266,109 @@ async function loadPlanB(){
     return {k,r,buf}}).filter(o=>o&&vkey(o.r)!==orig&&o.buf>=0).slice(0,3)};
 }
 
+/* Anfahrt: Haltestellen VOR dem Einstieg, über die Gegenrichtung an der Endhaltestelle */
+async function loadApproaches(){
+  if(st.demo)return;
+  const c=st.conns[selIndex()];if(!c)return;
+  await Promise.all((c.sections||[]).filter(s=>s.journey).map(r=>loadApproach(r).catch(()=>{})));
+}
+async function loadApproach(r){
+  const d=dep(r.departure),dp=r.departure&&r.departure.departureTimestamp;if(!d||!dp)return;
+  if(d<now()-60||d-now()>50*60)return;
+  const j=r.journey,okey=j.category+j.number+'>'+j.to;
+  let origin=st.orig.get(okey);
+  if(origin===undefined){
+    origin=null;
+    try{const sb=await getJSON(API+'stationboard?'+new URLSearchParams({station:j.to,limit:'20'}));
+      const m=(sb.stationboard||[]).find(e=>String(e.number)===String(j.number)&&e.category===j.category);origin=m?m.to:null}catch(e){}
+    st.orig.set(okey,origin);
+  }
+  const bName=stn(r.departure).name,bId=stn(r.departure).id;
+  if(!origin||origin===bName)return;
+  const q=new URLSearchParams({from:origin,to:bId||bName,limit:'6',date:ymd(new Date(dp*1000)),time:hhmm(new Date((dp-50*60)*1000))});
+  const res=await getJSON(API+'connections?'+q);
+  for(const k of res.connections||[])for(const s of k.sections||[]){
+    if(s.journey&&s.journey.name===j.name&&String(s.journey.number)===String(j.number)){
+      const pl=s.journey.passList||[],last=pl[pl.length-1];
+      if(pl.length>1&&(stn(last).id===bId||stn(last).name===bName)){st.appr.set(vkey(r),pl);return}
+    }
+  }
+}
+
+/* Haltestellenliste eines Fahrzeugs: Anfahrt + eigene Strecke; b = Index deines Einstiegs */
+function listFor(r){
+  const a=st.appr.get(vkey(r))||[];
+  const pl=[...a.slice(0,-1),r.departure,...(r.journey.passList||[]).slice(1,-1),r.arrival].filter(p=>ll(p));
+  return {pl,b:Math.max(0,pl.indexOf(r.departure))};
+}
+function pos(r){
+  const {pl,b}=listFor(r),n=pl.length-1;if(n<1)return null;
+  const t=now(),tA=i=>arr(pl[i])??dep(pl[i]),tD=i=>dep(pl[i])??arr(pl[i]);
+  const tb=dep(r.departure),waitMin=tb!=null&&t<tb?Math.max(0,Math.ceil((tb-t)/60)):null;
+  let prog=n;
+  if(tD(0)!=null&&t<tD(0))prog=0;
+  else if(!(tA(n)!=null&&t>=tA(n)))for(let i=0;i<n;i++){
+    if(t<tD(i)){prog=i;break}
+    if(t<tA(i+1)){prog=i+(t-tD(i))/Math.max(1,tA(i+1)-tD(i));break}
+  }
+  const key=vkey(r),old=st.prog.get(key);if(old!=null&&prog<old&&old-prog<1.5)prog=old;st.prog.set(key,prog);
+  const i=Math.min(Math.floor(prog),n-1),f=Math.min(1,prog-i),A=ll(pl[i]),B=ll(pl[i+1]);
+  return{p:[A[0]+(B[0]-A[0])*f,A[1]+(B[1]-A[1])*f],prog,b,n,pl,waitMin,done:tA(n)!=null&&t>=tA(n)+60};
+}
+
 function render(){
   const A=st.conns.map(analyse),si=selIndex();
   const best=A[0]&&A[0].level==='bad'?A.findIndex(a=>a.level!=='bad'):-1;
-  $('#list').innerHTML=st.conns.length?st.conns.map((c,i)=>card(c,A[i],i,i===si,i===best)).join('')+
-    '<p class="note">Antippen wählt die Verbindung für die Karte. Bleibt gewählt, auch wenn du schon drinsitzt – die Liste aktualisiert sich alle 30 s.</p>'
+  $('#list').innerHTML=st.conns.length?'<h2>Verbindungen · antippen zum Anzeigen</h2>'+st.conns.map((c,i)=>card(c,A[i],i===si,i===best)).join('')
     :'<p class="empty">Keine Verbindung gefunden. Haltestellennamen prüfen (z.B. «Basel, Barfüsserplatz»).</p>';
+  renderFocus(st.conns[si],A[si]);
   drawMap(A[si]);
 }
-function card(c,a,i,sel,best){
+function head(c,a){
   const d0=dep(c.from),d0p=c.from&&c.from.departureTimestamp,a1=arr(c.to);
   const late=d0p&&d0-d0p>=60?`<span class="late">+${Math.round((d0-d0p)/60)}</span>`:'';
+  return `<span class="time">${hm(d0)}</span>${late}<span class="arrt">→ ${hm(a1)}</span>`;
+}
+function card(c,a,sel,best){
   const chips=a.rides.map(r=>`<span class="chip" title="Richtung ${esc(r.journey.to)}">${esc(r.journey.category)} ${esc(r.journey.number||'')}</span>`).join('<span>›</span>');
   const xf=a.xfers.map(x=>`<div class="xf ${lvl(x.buf)}"><i></i><span>Umstieg ${esc(short(x.at))}</span><b>${bufTxt(x.buf)}</b></div>`).join('');
-  const rc=a.reach?`<div class="xf ${lvl(a.reach.buf)}"><i></i><span>Zu Fuss zur Haltestelle, ca. ${Math.round(a.reach.m)} m</span><b>${bufTxt(a.reach.buf)}</b></div>`:'';
-  let pb='';
-  if(sel&&st.planB){
+  return `<article tabindex="0" class="${sel?'sel':''}" data-k="${esc(ckey(c))}">
+  <div class="r1">${head(c,a)}${best?'<span class="tag">Empfohlen</span>':''}<span class="pill ${a.level}">${LV[a.level]}</span></div>
+  <div class="legs">${chips}<span>ab ${esc(short(stn(c.from).name))}</span></div>${xf}</article>`;
+}
+const xbig=(t,b)=>`<div class="xbig ${lvl(b)}"><span>${t}</span><b>${bufTxt(b)}</b></div>`;
+function renderFocus(c,a){
+  const F=$('#focus');st.band=[];
+  if(!c||!a){F.innerHTML='';return}
+  let h=`<div class="fcard"><div class="fhead">${head(c,a)}<span class="pill ${a.level}">${LV[a.level]}</span></div>`;
+  if(a.reach)h+=xbig(`Zu Fuss zur Haltestelle (${Math.round(a.reach.m)} m)`,a.reach.buf);
+  a.rides.forEach((r,k)=>{
+    h+=`<div class="leg" data-i="${k}"><div class="lh"><span class="ico">${icon(r)}</span><span class="chip">${esc(r.journey.category)} ${esc(r.journey.number||'')}</span><span class="dir">${esc(short(r.journey.to))}</span><b class="ls"></b></div>
+    <div class="track"></div>
+    <div class="ends"><span>ab ${esc(short(stn(r.departure).name))} <b>${hm(dep(r.departure))}</b></span><span>an ${esc(short(stn(r.arrival).name))} <b>${hm(arr(r.arrival))}</b></span></div></div>`;
+    const x=a.xfers[k];if(x)h+=xbig(`Umstieg ${esc(short(x.at))}`,x.buf);
+  });
+  if(st.planB&&st.planB.x){
     const x=st.planB.x;
-    pb=`<div class="planb"><h3>Plan B ab ${esc(short(x.at))} (du bist dort ca. ${hm(x.arr)})</h3>`+(st.planB.list.length?'<ul>'+st.planB.list.map((o,j)=>
+    h+=`<div class="planb"><h3>Plan B ab ${esc(short(x.at))} – du bist dort ca. ${hm(x.arr)}</h3>`+(st.planB.list.length?'<ul>'+st.planB.list.map(o=>
       `<li><span class="num">${hm(dep(o.r.departure))}</span><span class="chip">${esc(o.r.journey.category)} ${esc(o.r.journey.number||'')}</span><span>an ${hm(arr(o.k.to))}</span></li>`).join('')+'</ul>':'<p class="note">Keine erreichbare Alternative gefunden.</p>')+'</div>';
   }
-  return `<article tabindex="0" class="${sel?'sel':''}" data-k="${esc(ckey(c))}">
-  <div class="r1"><span class="time">${hm(d0)}</span>${late}<span class="arrt">→ ${hm(a1)}</span>${best?'<span class="tag">Empfohlen</span>':''}<span class="pill ${a.level}">${LV[a.level]}</span></div>
-  <div class="legs">${chips}<span>ab ${esc(short(stn(c.from).name))}${c.from&&c.from.platform?' · Kante '+esc(c.from.platform):''}</span></div>${rc}${xf}${pb}</article>`;
+  F.innerHTML=h+'</div>';
+  F.querySelectorAll('.leg').forEach(el=>{const r=a.rides[+el.dataset.i];st.band.push({r,track:el.querySelector('.track'),ls:el.querySelector('.ls'),sig:'',dot:null})});
+  tick();
+}
+const xpos=(i,b,n)=>{const A=b>0?30:0;return b>0&&i<=b?A*i/b:A+(100-A)*(i-b)/Math.max(1,n-b)};
+function drawTrack(o,P){
+  const{b,n}=P;let h=`<div class="rail"></div><div class="rail ride" style="left:${xpos(b,b,n)}%"></div>`;
+  for(let i=0;i<=n;i++)h+=`<i class="${i===b||i===n?'tick key':i<b?'tick pre':'tick'}" style="left:${xpos(i,b,n)}%"></i>`;
+  o.track.innerHTML=h+`<div class="dot">${icon(o.r)}</div>`;o.dot=o.track.querySelector('.dot');
+}
+function legStatus(P){
+  const pl=k=>k===1?'1 Halt':k+' Halte';
+  if(P.done||P.prog>=P.n)return'angekommen';
+  if(P.prog<P.b)return`noch ${pl(P.b-Math.floor(P.prog))} bis zu dir · ${P.waitMin??0}'`;
+  if(P.waitMin!=null)return P.b>0?`steht an deiner Haltestelle · ${P.waitMin}'`:`fährt in ${P.waitMin}'`;
+  return`unterwegs · noch ${pl(P.n-Math.floor(P.prog))}`;
 }
 
 let map=null,layer,vehLayer,tiles=null;
@@ -265,55 +387,51 @@ function drawMap(a){
   if(!a)return;
   const items=a.rides.map(r=>({r,col:ACC(),css:'var(--acc)',ghost:false}));
   if(st.planB)st.planB.list.forEach(o=>items.push({r:o.r,col:PBC(),css:'var(--pb)',ghost:true}));
-  const pts=[];
+  const pts=[];let nAppr=0;
   for(const it of items){
-    const pl=(it.r.journey.passList||[]).map(ll).filter(Boolean);if(pl.length<2)continue;
-    if(!it.ghost)pts.push(...pl);
-    L.polyline(pl,{color:it.col,weight:it.ghost?2:4,opacity:it.ghost?.45:.45,dashArray:it.ghost?'3 6':null,lineCap:'round',interactive:false}).addTo(layer);
-    if(!it.ghost)pl.forEach((p,j)=>L.circleMarker(p,{radius:j===0||j===pl.length-1?4:2.5,color:dark()?'#5d6561':'#b4bbb7',weight:1.5,fillColor:'#fff',fillOpacity:1,interactive:false}).addTo(layer));
-    const P0=pos(it.r,vkey(it.r));
-    const m=L.marker(P0&&P0.p||pl[0],{interactive:false,keyboard:false,icon:L.divIcon({className:'vwrap',iconSize:[0,0],html:`<div class="veh${it.ghost?' ghost':''}" style="--c:${it.css}">${icon(it.r)}<b></b></div>`})}).addTo(vehLayer);
-    st.veh.push({r:it.r,key:vkey(it.r),m,label:it.r.journey.number||it.r.journey.name||'?'});
+    const{pl,b}=listFor(it.r);const P=pl.map(ll);if(P.length<2)continue;
+    const pre=P.slice(0,b+1),own=P.slice(b);
+    if(!it.ghost){pts.push(...own);if(b>0)nAppr++}
+    if(pre.length>1)L.polyline(pre,{color:it.col,weight:3,opacity:.35,dashArray:'2 7',lineCap:'round',interactive:false}).addTo(layer);
+    L.polyline(own,{color:it.col,weight:it.ghost?2:4,opacity:.45,dashArray:it.ghost?'3 6':null,lineCap:'round',interactive:false}).addTo(layer);
+    if(!it.ghost)own.forEach((p,j)=>L.circleMarker(p,{radius:j===0||j===own.length-1?4:2.5,color:dark()?'#5d6561':'#b4bbb7',weight:1.5,fillColor:'#fff',fillOpacity:1,interactive:false}).addTo(layer));
+    const P0=pos(it.r);
+    const m=L.marker(P0&&P0.p||own[0],{interactive:false,keyboard:false,icon:L.divIcon({className:'vwrap',iconSize:[0,0],html:`<div class="veh${it.ghost?' ghost':''}" style="--c:${it.css}">${icon(it.r)}<b></b></div>`})}).addTo(vehLayer);
+    st.veh.push({r:it.r,m,label:it.r.journey.number||it.r.journey.name||'?'});
+    if(!it.ghost&&P0&&P0.prog<b)pts.push(P0.p);
   }
   const first=a.rides[0],lastR=a.rides[a.rides.length-1];
   if(first&&ll(first.departure))label(ll(first.departure),short(stn(first.departure).name));
   a.xfers.forEach(x=>{const p=ll(x.to.departure);if(!p)return;L.circleMarker(p,{radius:10,color:LC[lvl(x.buf)],weight:2.5,fill:false,interactive:false}).addTo(layer);label(p,'Umstieg '+short(x.at))});
   if(lastR&&ll(lastR.arrival))label(ll(lastR.arrival),short(stn(lastR.arrival).name));
   if(st.me)L.circleMarker(st.me,{radius:7,color:'#fff',weight:3,fillColor:'#1e5bd6',fillOpacity:1,interactive:false}).addTo(layer);
-  if(pts.length&&st.fitKey!==st.selKey){map.fitBounds(pts,{padding:[40,40],maxZoom:16});st.fitKey=st.selKey}
+  const fk=st.selKey+'|'+nAppr;
+  if(pts.length&&st.fitKey!==fk){map.fitBounds(pts,{padding:[36,36],maxZoom:16});st.fitKey=fk}
   tick();
 }
 
-function pos(r,key){
-  const pl=(r.journey.passList||[]).filter(p=>ll(p));if(pl.length<2)return null;
-  const t=now(),n=pl.length-1;
-  const tA=i=>arr(pl[i])??dep(pl[i]),tD=i=>dep(pl[i])??arr(pl[i]);
-  if(tD(0)!=null&&t<tD(0))return{p:ll(pl[0]),wait:Math.max(0,Math.ceil((tD(0)-t)/60))};
-  if(tA(n)!=null&&t>=tA(n)+30)return{done:true};
-  let prog=n;
-  for(let i=0;i<n;i++){
-    if(t<tD(i)){prog=i;break}
-    if(t<tA(i+1)){prog=i+(t-tD(i))/Math.max(1,tA(i+1)-tD(i));break}
-  }
-  const old=st.prog.get(key);if(old!=null&&prog<old&&old-prog<1.5)prog=old;st.prog.set(key,prog);
-  const i=Math.min(Math.floor(prog),n-1),f=Math.min(1,prog-i),a=ll(pl[i]),b=ll(pl[i+1]);
-  return{p:[a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f]};
-}
 function tick(){
   for(const v of st.veh){
-    const el=v.m.getElement();if(!el)continue;const box=el.firstChild,P=pos(v.r,v.key);
+    const el=v.m.getElement();if(!el)continue;const box=el.firstChild,P=pos(v.r);
     if(!P||P.done){el.style.display='none';continue}
     el.style.display='';v.m.setLatLng(P.p);
-    const b=box.querySelector('b'),txt=v.label+(P.wait!=null?` · in ${P.wait}'`:'');
+    const b=box.querySelector('b'),txt=v.label+(P.waitMin!=null?` · ${P.waitMin}'`:'');
     if(b&&b.textContent!==txt)b.textContent=txt;
-    box.classList.toggle('wait',P.wait!=null);
+    box.classList.toggle('wait',P.b===0&&P.waitMin!=null);
+  }
+  for(const o of st.band){
+    const P=pos(o.r);if(!P)continue;
+    const sig=P.n+'|'+P.b;if(o.sig!==sig){drawTrack(o,P);o.sig=sig}
+    o.dot.style.left=xpos(P.prog,P.b,P.n)+'%';
+    o.dot.classList.toggle('unk',P.b===0&&P.waitMin!=null);
+    const s=legStatus(P);if(o.ls.textContent!==s)o.ls.textContent=s;
   }
   if(st.updated&&!st.busy)setStatus(st.demo?'<b>Demo</b> · Fahrzeuge bewegen sich in Echtzeit':`<b>Live</b> · aktualisiert vor ${Math.round(now()-st.updated)} s`);
 }
 function setStatus(h){$('#st').innerHTML=h}
 
 /* Demo-Daten im Format von transport.opendata.ch, Zeiten relativ zu jetzt */
-const S={ALL:['Basel, Allschwilerplatz','8589293',47.557241,7.570579],BRA:['Basel, Brausebad','8581062',47.555537,7.575861],SCH:['Basel, Schützenhaus','8589360',47.553203,7.577092],ZOO:['Basel, Zoo Bachletten','8589381',47.550881,7.580451],HEU:['Basel, Heuwaage','8500079',47.551269,7.588051],THE:['Basel, Theater','8500994',47.553124,7.589776],BAR:['Basel, Barfüsserplatz','8500897',47.554591,7.589057],BAN:['Basel, Bankverein','8500896',47.55365,7.59245],KUN:['Basel, Kunstmuseum','8500893',47.5547,7.5944],WET:['Basel, Wettsteinplatz','8500898',47.5596,7.5961]};
+const S={NEU:['Basel, Neuweilerstrasse','8589110',47.5555,7.5655],ALL:['Basel, Allschwilerplatz','8589293',47.557241,7.570579],BRA:['Basel, Brausebad','8581062',47.555537,7.575861],SCH:['Basel, Schützenhaus','8589360',47.553203,7.577092],ZOO:['Basel, Zoo Bachletten','8589381',47.550881,7.580451],HEU:['Basel, Heuwaage','8500079',47.551269,7.588051],THE:['Basel, Theater','8500994',47.553124,7.589776],BAR:['Basel, Barfüsserplatz','8500897',47.554591,7.589057],BAN:['Basel, Bankverein','8500896',47.55365,7.59245],KUN:['Basel, Kunstmuseum','8500893',47.5547,7.5944],WET:['Basel, Wettsteinplatz','8500898',47.5596,7.5961]};
 const T0=Math.floor(now()/60)*60;
 const iso=t=>new Date(t*1000).toISOString();
 function dpass(k,m,d){const[name,id,x,y]=S[k],ts=T0+m*60;return{station:{id,name,coordinate:{type:'WGS84',x,y}},arrivalTimestamp:ts,departureTimestamp:ts,delay:d,prognosis:{arrival:iso(ts+d*60),departure:iso(ts+d*60)}}}
@@ -321,21 +439,31 @@ function dride(cat,num,to,stops,d){const pl=stops.map(([k,m])=>dpass(k,m,d));ret
 function dconn(...rides){return{from:rides[0].departure,to:rides[rides.length-1].arrival,sections:rides}}
 const six=(o,d)=>dride('T','6','Riehen Grenze',[['ALL',o-4],['BRA',o-2],['SCH',o-1],['ZOO',o+1],['HEU',o+3],['THE',o+4],['BAR',o+5]],d);
 const two=(o,d)=>dride('T','2','Eglisee',[['BAR',o],['BAN',o+1],['KUN',o+2],['WET',o+5]],d);
-function demoConns(){return[dconn(six(0,3),two(8,0)),dconn(six(8,0),two(18,1)),dconn(six(15,1),two(25,0))]}
+function demoConns(){
+  const c=[dconn(six(0,3),two(8,0)),dconn(six(8,0),two(18,1)),dconn(six(15,1),two(25,0))];
+  /* Demo-Anfahrt: 2er kommt vom Theater her, 6er der zweiten Verbindung von der Neuweilerstrasse */
+  st.appr.set(vkey(c[0].sections[1]),[dpass('HEU',3,0),dpass('THE',5,0),dpass('BAR',8,0)]);
+  st.appr.set(vkey(c[1].sections[0]),[dpass('NEU',-2,0),dpass('ALL',4,0)]);
+  return c;
+}
 function demoPlanB(){return[dconn(two(15,0)),dconn(two(22,1))]}
 
 /* Bedienung */
 const F=$('#from'),To=$('#to');
+function compact(on){$('#f').hidden=on;$('#sum').hidden=!on;$('#sumt').textContent=short(st.from)+' → '+short(st.to)}
 try{F.value=localStorage.getItem('rb-from')||'Basel, Allschwilerplatz';To.value=localStorage.getItem('rb-to')||'Basel, Wettsteinplatz'}catch(e){F.value='Basel, Allschwilerplatz';To.value='Basel, Wettsteinplatz'}
 $('#f').addEventListener('submit',e=>{e.preventDefault();st.from=F.value.trim();st.to=To.value.trim();if(!st.from||!st.to)return;
+  if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();
   try{localStorage.setItem('rb-from',st.from);localStorage.setItem('rb-to',st.to)}catch(_){}load(true)});
+$('#sum').addEventListener('click',()=>{compact(false);F.focus()});
 $('#swap').addEventListener('click',()=>{const v=F.value;F.value=To.value;To.value=v});
 let acT;
 const ac=e=>{const v=e.target.value.trim();clearTimeout(acT);if(st.demo||v.length<2)return;
   acT=setTimeout(async()=>{try{const j=await getJSON(API+'locations?type=station&query='+encodeURIComponent(v));
     $('#stations').innerHTML=(j.stations||[]).filter(s=>s.id&&s.name).slice(0,8).map(s=>`<option value="${esc(s.name)}"></option>`).join('')}catch(_){}},250)};
 F.addEventListener('input',ac);To.addEventListener('input',ac);
-const pick=el=>{const a=el.closest('article');if(!a)return;st.selKey=a.dataset.k;loadPlanB().then(render)};
+const pick=el=>{const a=el.closest('article');if(!a||a.dataset.k===st.selKey)return;st.selKey=a.dataset.k;st.planB=null;render();
+  window.scrollTo({top:0,behavior:'smooth'});Promise.all([loadPlanB(),loadApproaches()]).then(render)};
 $('#list').addEventListener('click',e=>pick(e.target));
 $('#list').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick(e.target)}});
 $('#gps').addEventListener('click',()=>{
@@ -346,6 +474,7 @@ $('#gps').addEventListener('click',()=>{
 });
 setInterval(tick,1000);
 setInterval(()=>{if(!document.hidden&&st.conns.length&&!st.demo)load(false)},30000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&st.conns.length&&!st.demo&&now()-st.updated>20)load(false)});
 st.from=F.value.trim();st.to=To.value.trim();load(true);
 }
 </script>
