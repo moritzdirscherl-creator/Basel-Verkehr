@@ -1,4 +1,4 @@
-# Reicht's? Basel
+# Längt's? Basel
 
 Prototyp einer ÖV-App für Basel: Zeigt pro Verbindung, wo die Trams und Busse gerade sind, ob der Anschluss reicht (Ampel), und einen Plan B ab dem Umsteigeort.
 
