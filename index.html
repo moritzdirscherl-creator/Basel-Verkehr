@@ -182,6 +182,8 @@ h2{font-size:13px;font-weight:600;color:var(--muted);margin:4px 0 0;text-transfo
 /* Linien-Marke: dieselbe auf Karte, Band und Schritten */
 .ln{display:inline-grid;place-items:center;min-width:30px;height:26px;padding:0 7px;border-radius:7px;background:var(--acc);color:#fff;font:700 16px/1 "Barlow Semi Condensed",sans-serif;white-space:nowrap}
 .ln.bus{border-radius:13px}
+.ln.train{border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.25);padding:0 6px;font-size:15px}
+.ln.big.train{border-radius:5px;font-size:21px}
 /* Schritte */
 .steps{list-style:none;margin:0;padding:0}
 .step{position:relative;padding:12px 0 12px 40px}
@@ -330,7 +332,10 @@ const DV={ok:'Längt',renn:'Renn!',bad:'Längt nid'};
 const LC={ok:'#1f9d55',warn:'#e0a100',bad:'#d23b2f',direct:'#69726d'};
 const hav=(a,b)=>{const R=6371e3,r=Math.PI/180,dLa=(b[0]-a[0])*r,dLo=(b[1]-a[1])*r;const h=Math.sin(dLa/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(h))};
 const plat=p=>String(p&&(p.platform||(p.prognosis&&p.prognosis.platform))||'').trim();
-const xferNeed=(a,d)=>{const sa=String(stn(a).id||''),sd=String(stn(d).id||'');if(!sa||sa!==sd)return 180;const pa=plat(a),pd=plat(d);return pa&&pd&&pa!==pd?60:0};
+const xferNeed=(a,d,ra,rd)=>{const sa=String(stn(a).id||''),sd=String(stn(d).id||''),tr=(ra&&mode(ra)==='train')||(rd&&mode(rd)==='train');
+  if(!sa||sa!==sd)return tr?300:180;const pa=plat(a),pd=plat(d);
+  if(tr)return pa&&pd&&pa===pd?60:180;
+  return pa&&pd&&pa!==pd?60:0};
 const bufTxt=b=>b==null?'?':b<0?`${Math.ceil(-b/60)} Min. zu spät`:b<60?'sofort umsteigen':`${Math.floor(b/60)} Min. Puffer`;
 const dark=()=>{const t=document.documentElement.dataset.theme;return t==='dark'||(t!=='light'&&!!(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))};
 const ACC=()=>dark()?'#8ea6c4':'#5b7798',PBC=()=>dark()?'#6f7773':'#9aa19d';
@@ -338,7 +343,19 @@ const ICON={T:'<svg viewBox="0 0 24 24"><path d="M9 0h6v2H9zM7 3h10a2 2 0 0 1 2 
   B:'<svg viewBox="0 0 24 24"><path d="M6 2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-1 1.7V20h-2.5v-2h-9v2H5v-2.3A2 2 0 0 1 4 16V4a2 2 0 0 1 2-2zm0 3v6h12V5zm1.5 8a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6zm9 0a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6z"/></svg>'};
 const WALK='<svg viewBox="0 0 24 24"><circle cx="13.5" cy="3.8" r="2.1"/><path d="M10.2 7.2 6.5 9v4h2v-2.7l1.4-.6-2 9.8H10l1.3-5.6 2.2 2.1V21h2v-5.8l-2.3-2.2.7-3.2a6 6 0 0 0 4.1 2.2v-2a4 4 0 0 1-3.2-2l-1-1.6a2.2 2.2 0 0 0-2.8-.8z"/></svg>';
 const mins=s=>Math.max(1,Math.round(s/60));
-const icon=r=>/^(B|NFB|BUS|KB)$/i.test(r.journey.category||'')?ICON.B:ICON.T;
+/* Verkehrsmittel: tram | bus | train | ship */
+const BUSC=/^(B|NFB|BUS|KB|EV|BN|EXB|NB|CAR)$/i,TRAMC=/^(T|TRAM|NFT)$/i,SHIPC=/^(BAT|FAE|SHIP)$/i;
+const mode=r=>{const c=String(r&&r.journey&&r.journey.category||'').trim();
+  if(TRAMC.test(c))return'tram';if(BUSC.test(c))return'bus';if(SHIPC.test(c))return'ship';
+  if(!c){const cc=r&&r.journey&&r.journey.categoryCode;return cc===9?'tram':cc===6?'bus':'tram'}
+  return'train'};
+ICON.Z='<svg viewBox="0 0 24 24"><path d="M7 2h10a3 3 0 0 1 3 3v10a3 3 0 0 1-2.2 2.9L19.5 21H17l-1.5-3h-7L7 21H4.5l1.7-3.1A3 3 0 0 1 4 15V5a3 3 0 0 1 3-3zm-1 4v4h5V6zm7 0v4h5V6zM7.5 13a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6zm9 0a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6z"/></svg>';
+const icon=r=>{const m=mode(r);return m==='bus'?ICON.B:m==='train'?ICON.Z:ICON.T};
+const MODEN={tram:'Tram',bus:'Bus',train:'Zug',ship:'Schiff'};
+const lineLabel=r=>{const j=r.journey,c=String(j.category||'').trim(),n=String(j.number||'').trim();
+  if(mode(r)!=='train')return n||c||'?';
+  if(!n||n===c)return c||'Zug';
+  return n.length>3?c:(/^\d/.test(n)&&c.length===1?c+n:c+' '+n)};
 const st={tn:0,userMoved:0,routePts:[],walkFallback:false,raw:[],from:'',to:'',time:new Date(),conns:[],selKey:null,demo:false,live:false,updated:0,planB:null,me:null,
   prog:new Map(),apprState:new Map(),apprAt:new Map(),fitKey:'',veh:[],band:[],busy:false,pending:false,appr:new Map(),orig:new Map()};
 
@@ -358,7 +375,7 @@ function analyse(c){
         const pa=last.arrival&&last.arrival.arrivalTimestamp,pd=s.departure&&s.departure.departureTimestamp;
         if(pa&&pd&&pd+60<pa)valid=false;
         const same=stn(last.arrival).id&&stn(last.arrival).id===stn(s.departure).id;
-        const need=walk||xferNeed(last.arrival,s.departure);
+        const need=walk||xferNeed(last.arrival,s.departure,last,s);
         xfers.push({at:stn(s.departure).name||'',atId:stn(s.departure).id,fromAt:stn(last.arrival).name||'',walk,from:last,to:s,arr:a,dep:d,need,buf:a!=null&&d!=null?d-a-need:null});
       }
       rides.push(s);last=s;walk=0;
@@ -429,7 +446,7 @@ async function rebuild(c,t0){
   for(const s of c.sections||[]){
     const A=String(stn(s.departure).id||''),B=String(stn(s.arrival).id||'');
     if(!s.journey&&(A===B||!A||!B))continue;
-    const xf=out.length?xferNeed(out[out.length-1].arrival,s.departure):0;
+    const xf=out.length?xferNeed(out[out.length-1].arrival,s.departure,out[out.length-1].journey?out[out.length-1]:null,s.journey?s:null):0;
     if(s.journey&&dep(s.departure)!=null&&dep(s.departure)>=t+xf){out.push(s);t=arr(s.arrival)??t;continue}
     const [hp]=await hops(A,B,t+xf);
     if(!hp){if(s.journey)return null;out.push(s);t+=walkSec(s);continue}
@@ -500,7 +517,7 @@ async function loadPlanB(){
     const a=analyse(k);if(!a.valid||!a.rides.length)continue;
     const r=a.rides[0],first=(k.sections||[])[0];
     if(a.walkTotal===0&&first&&first.journey){
-      const buf=dep(r.departure)-x.arr-xferNeed(x.from.arrival,r.departure);
+      const buf=dep(r.departure)-x.arr-xferNeed(x.from.arrival,r.departure,x.from,r);
       if(vkey(r)!==orig&&buf>=0)rides.push({k,r,buf});
     } else walks.push({k,a});
   }
@@ -529,7 +546,7 @@ async function loadApproach(r){
   const j=r.journey,B=String(stn(r.departure).id||'');if(!B)return;
   const same=e=>String(e.number)===String(j.number)&&e.category===j.category;
   const pl0=j.passList||[],nextId=pl0[1]?String(stn(pl0[1]).id):'';
-  const kind=isBus(r)?'bus':'tram';
+  const kind=mode(r);
   /* 1) Gegenrichtung derselben Linie an deiner Haltestelle oder in der Nähe -> Haltestellen vor dir */
   const okey=j.category+j.number+'|'+B+'|'+nextId;
   let seq=st.orig.get(okey);
@@ -596,7 +613,8 @@ function geoFor(r){
   if(!GEO.idx)return null;
   const{pl}=listFor(r),key=vkey(r)+'|'+pl.length;
   if(GFIT.has(key))return GFIT.get(key);
-  const cand=GEO.idx.get((isBus(r)?'bus':'tram')+'|'+r.journey.number)||[];
+  const md=mode(r);if(md==='train'||md==='ship')return null;
+  const cand=GEO.idx.get(md+'|'+r.journey.number)||[];
   let best=null;
   for(const s of cand){
     let i0=0,ok=true,sum=0;const ds=[];
@@ -657,8 +675,8 @@ function head(c,a){
   const m=d0!=null?Math.floor((d0-now())/60):null;
   return `<span class="time">${hm(d0)}</span>${late}<span class="arrt">→ ${hm(a1)}</span>${m!=null&&m>=0&&m<60?`<span class="in">${m===0?'jetzt':'in '+m+"'"}</span>`:''}`;
 }
-const isBus=r=>/^(B|NFB|BUS|KB)$/i.test(r.journey.category||'');
-const LN=(r,cls='')=>`<span class="ln${isBus(r)?' bus':''}${cls?' '+cls:''}" title="${isBus(r)?'Bus':'Tram'} ${esc(r.journey.number||'')}">${esc(r.journey.number||r.journey.category||'?')}</span>`;
+const isBus=r=>mode(r)==='bus';
+const LN=(r,cls='')=>{const m=mode(r);return`<span class="ln${m==='bus'?' bus':m==='train'?' train':''}${cls?' '+cls:''}" title="${MODEN[m]} ${esc(lineLabel(r))}">${esc(lineLabel(r))}</span>`};
 function card(c,a,sel,best){
   const chips=(c.sections||[]).map(s=>s.journey?`<span class="chip" title="Richtung ${esc(s.journey.to)}">${esc(s.journey.category)} ${esc(s.journey.number||'')}</span>`
     :`<span class="wchip">${WALK}${mins(walkSec(s))}'</span>`).join('<span>›</span>');
@@ -703,7 +721,7 @@ function renderHero(){
       :d.src==='gps'?`${mins(d.need)} Min. zu Fuss zur <b>${esc(short(stn(r0.departure).name))}</b>`
       :`ab <b>${esc(short(stn(r0.departure).name))}</b>`;
     html=`<div class="th"><span class="tic">${walkFirst||d.src==='gps'?WALK:icon(r0)}</span><div class="tb"><div class="ts">Abfahrt</div><div class="tt gw">${DV[d.level]}</div></div><div class="tr"><span class="cdv"></span><small class="cdl"></small></div></div>
-      <div class="gsub">${how} · ${LN(r0)} ${hm(d.tb)}${!st.me&&!walkFirst?' <span class="mu">· ohne Standort</span>':''}</div>`;
+      <div class="gsub">${how} · ${LN(r0)} ${hm(d.tb)}${mode(r0)==='train'&&plat(r0.departure)?` · <b>Gleis ${esc(plat(r0.departure))}</b>`:''}${!st.me&&!walkFirst?' <span class="mu">· ohne Standort</span>':''}</div>`;
     if(d.level==='bad'){const n=nextOk();
       if(n)html+=`<div class="alt">Nächste: ${n.a.rides.map(r=>LN(r)).join(' ')} <b>${hm(n.d.tb)}</b> <span class="mu">${DV[n.d.level]}</span><button type="button" data-k="${esc(ckey(n.c))}">Anzeigen</button></div>`}
     const w=walkOpts(c).filter(k=>arr(k.to)!=null&&arr(c.to)-arr(k.to)>=300).sort((x,y)=>arr(x.to)-arr(y.to))[0];
@@ -738,7 +756,7 @@ function renderFocus(c,a){
       return;
     }
     k++;const r=s;
-    parts.push(`<div class="tile ride" data-i="${k}"><div class="th">${LN(r,'big')}<div class="tb"><div class="tt">${esc(short(stn(r.departure).name))} → ${esc(short(stn(r.arrival).name))}</div><div class="ts">${isBus(r)?'Bus':'Tram'} Richtung ${esc(short(r.journey.to))}</div></div>
+    parts.push(`<div class="tile ride" data-i="${k}"><div class="th">${LN(r,'big')}<div class="tb"><div class="tt">${esc(short(stn(r.departure).name))} → ${esc(short(stn(r.arrival).name))}</div><div class="ts">${MODEN[mode(r)]} Richtung ${esc(short(r.journey.to))}${mode(r)==='train'&&plat(r.departure)?` · <b>Gleis ${esc(plat(r.departure))}</b>`:''}</div></div>
       <div class="tr">${hm(dep(r.departure))}<small>an ${hm(arr(r.arrival))}</small></div></div><div class="now"></div><div class="track"></div></div>`);
     const x=a.xfers[k];
     if(x){const L=lvl(x.buf),wk=x.walk&&x.fromAt!==x.at;
