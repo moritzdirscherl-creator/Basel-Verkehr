@@ -93,6 +93,16 @@ article.sel{border-color:var(--acc);box-shadow:inset 4px 0 0 var(--acc)}
 .slab{position:absolute;transform:translate(-50%,9px);font-weight:500!important;color:var(--muted)!important;font:600 12px Inter,sans-serif;color:light-dark(#0f1a13,#e6eee8);white-space:nowrap;text-shadow:0 0 3px light-dark(#fff,#000),0 0 3px light-dark(#fff,#000)}
 @media(prefers-reduced-motion:reduce){.vwrap{transition:none}}
 [hidden]{display:none!important}
+.opt{grid-column:1/-1;display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
+.opt select{font:15px Inter,sans-serif;min-height:40px;padding:0 8px;border-radius:8px;border:1px solid var(--line);background:var(--soft);color:var(--ink)}
+.wchip{display:inline-flex;align-items:center;gap:2px;font:600 14px "Barlow Semi Condensed",sans-serif;color:var(--muted);white-space:nowrap}
+.wchip svg{width:15px;height:15px;fill:currentColor}
+.walk{display:flex;align-items:center;gap:10px;margin-top:16px;font-size:14px;color:var(--muted)}
+.walk b{color:var(--ink);font-weight:600}
+.walk .wt{margin-left:auto;white-space:nowrap}
+.walk .wi{width:24px;height:24px;border-radius:50%;border:2px dashed color-mix(in srgb,var(--muted) 60%,transparent);display:grid;place-items:center;flex:none}
+.walk .wi svg{width:14px;height:14px;fill:var(--muted)}
+.xbig small{display:block;font-size:13px;color:var(--muted)}
 .sum{width:100%;margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--soft);border:1px solid var(--line);color:var(--ink);padding:0 12px;text-align:left;font-weight:600}
 .sum .edit{color:var(--muted);font-weight:500;font-size:14px;flex:none}
 main{flex:1;display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"focus" "map" "list";align-content:start}
@@ -139,6 +149,7 @@ h2{font-size:14px;font-weight:600;color:var(--muted);margin:2px 0 0}
       <input id="to" list="stations" autocomplete="off" aria-label="Nach" placeholder="Nach (Haltestelle)">
     </div>
     <button type="button" class="swap" id="swap" aria-label="Von und Nach tauschen">⇅</button>
+    <label class="opt">Fussweg höchstens <select id="mw"><option value="3">3 Min.</option><option value="5" selected>5 Min.</option><option value="10">10 Min.</option><option value="99">egal</option></select></label>
     <div class="actions">
       <button class="go" type="submit">Ab jetzt suchen</button>
       <button type="button" class="ghostbtn" id="gps">Standort nutzen</button>
@@ -183,8 +194,10 @@ const dark=()=>{const t=document.documentElement.dataset.theme;return t==='dark'
 const ACC=()=>dark()?'#8ea6c4':'#5b7798',PBC=()=>dark()?'#6f7773':'#9aa19d';
 const ICON={T:'<svg viewBox="0 0 24 24"><path d="M9 0h6v2H9zM7 3h10a2 2 0 0 1 2 2v10a3 3 0 0 1-2 2.8l1.5 2.2H16l-1.3-2H9.3L8 20H5.5L7 17.8A3 3 0 0 1 5 15V5a2 2 0 0 1 2-2zm0 3v5h10V6zm1.5 7.5a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4zm7 0a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4z"/></svg>',
   B:'<svg viewBox="0 0 24 24"><path d="M6 2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-1 1.7V20h-2.5v-2h-9v2H5v-2.3A2 2 0 0 1 4 16V4a2 2 0 0 1 2-2zm0 3v6h12V5zm1.5 8a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6zm9 0a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6z"/></svg>'};
+const WALK='<svg viewBox="0 0 24 24"><circle cx="13.5" cy="3.8" r="2.1"/><path d="M10.2 7.2 6.5 9v4h2v-2.7l1.4-.6-2 9.8H10l1.3-5.6 2.2 2.1V21h2v-5.8l-2.3-2.2.7-3.2a6 6 0 0 0 4.1 2.2v-2a4 4 0 0 1-3.2-2l-1-1.6a2.2 2.2 0 0 0-2.8-.8z"/></svg>';
+const mins=s=>Math.max(1,Math.round(s/60));
 const icon=r=>/^(B|NFB|BUS|KB)$/i.test(r.journey.category||'')?ICON.B:ICON.T;
-const st={from:'',to:'',time:new Date(),conns:[],selKey:null,demo:false,live:false,updated:0,planB:null,me:null,
+const st={raw:[],maxWalk:5,from:'',to:'',time:new Date(),conns:[],selKey:null,demo:false,live:false,updated:0,planB:null,me:null,
   prog:new Map(),fitKey:'',veh:[],band:[],busy:false,pending:false,appr:new Map(),orig:new Map()};
 
 function walkSec(s){
@@ -195,23 +208,35 @@ function walkSec(s){
   const p=String(d).split(/[:d]/).map(Number).slice(-3);return (p[0]||0)*3600+(p[1]||0)*60+(p[2]||0);
 }
 function analyse(c){
-  const rides=[],xfers=[];let walk=0,last=null;
+  const rides=[],xfers=[],walks=[];let walk=0,last=null,valid=true,maxWalk=0,walkTotal=0;
   for(const s of c.sections||[]){
     if(s.journey){
       if(last){
         const a=arr(last.arrival),d=dep(s.departure);
+        const pa=last.arrival&&last.arrival.arrivalTimestamp,pd=s.departure&&s.departure.departureTimestamp;
+        if(pa&&pd&&pd+60<pa)valid=false;
         const same=stn(last.arrival).id&&stn(last.arrival).id===stn(s.departure).id;
         const need=walk||(same?60:180);
-        xfers.push({at:stn(s.departure).name||'',atId:stn(s.departure).id,from:last,to:s,arr:a,dep:d,need,buf:a!=null&&d!=null?d-a-need:null});
+        xfers.push({at:stn(s.departure).name||'',atId:stn(s.departure).id,fromAt:stn(last.arrival).name||'',walk,from:last,to:s,arr:a,dep:d,need,buf:a!=null&&d!=null?d-a-need:null});
       }
       rides.push(s);last=s;walk=0;
-    } else walk+=walkSec(s);
+    } else {const w=walkSec(s);walk+=w;walkTotal+=w;maxWalk=Math.max(maxWalk,w);walks.push(s)}
   }
+  if(!rides.length)valid=false;
   let reach=null;
   if(st.me&&rides[0]){const p=ll(rides[0].departure),d=dep(rides[0].departure);if(p&&d){const m=hav(st.me,p)*1.3;reach={m,buf:d-now()-m/1.25}}}
   const bufs=xfers.map(x=>x.buf).filter(b=>b!=null);if(reach)bufs.push(reach.buf);
   const min=bufs.length?Math.min(...bufs):null;
-  return {rides,xfers,reach,min,level:lvl(min)};
+  return {rides,xfers,walks,reach,min,level:lvl(min),valid,maxWalk,walkTotal};
+}
+function tidy(list,keep){
+  const L=st.maxWalk*60,D=o=>dep(o.c.from)??0,A=o=>arr(o.c.to)??0;
+  const all=list.map(c=>({c,a:analyse(c),k:ckey(c)})).filter(o=>o.a.valid||o.k===keep);
+  let b=all.filter(o=>o.a.maxWalk<=L||o.k===keep);if(!b.length)b=all;
+  const seen=new Set();b=b.filter(o=>!seen.has(o.k)&&seen.add(o.k));
+  b=b.filter(o=>o.k===keep||!b.some(p=>p!==o&&D(p)>=D(o)&&A(p)<=A(o)&&(D(p)>D(o)||A(p)<A(o)||p.a.walkTotal<o.a.walkTotal)));
+  b.sort((x,y)=>D(x)-D(y)||A(x)-A(y));
+  return b.slice(0,6).map(o=>o.c);
 }
 function selIndex(){const i=st.conns.findIndex(c=>ckey(c)===st.selKey);return i<0?0:i}
 
@@ -229,15 +254,15 @@ async function load(fresh){
     if(fresh){st.time=new Date();st.selKey=null;st.prog.clear();st.fitKey='';st.appr.clear();st.planB=null}
     setStatus('Lade …');
     if(!st.demo){
-      const q=new URLSearchParams({from:st.from,to:st.to,limit:'5',date:ymd(st.time),time:hhmm(st.time)});
-      try{const j=await getJSON(API+'connections?'+q);st.conns=j.connections||[];st.live=true;addTiles()}
+      const q=new URLSearchParams({from:st.from,to:st.to,limit:'10',date:ymd(st.time),time:hhmm(st.time)});
+      try{const j=await getJSON(API+'connections?'+q);st.raw=j.connections||[];st.conns=tidy(st.raw,st.selKey);st.live=true;addTiles()}
       catch(e){
         if(e.http){setStatus(`Fehler ${e.http} – API nicht erreichbar oder Limit erreicht`);return}
         if(st.live){setStatus('Keine Verbindung zur API – zeige letzten Stand');return}
         st.demo=true;$('#demo').classList.add('on');
       }
     }
-    if(st.demo)st.conns=demoConns();
+    if(st.demo){st.raw=demoConns();st.conns=st.raw}
     if(fresh&&st.conns.length)compact(true);
     if(!st.conns.some(c=>ckey(c)===st.selKey))st.selKey=st.conns[0]?ckey(st.conns[0]):null;
     st.updated=now();
@@ -257,8 +282,8 @@ async function loadPlanB(){
   if(st.demo)list=demoPlanB();
   else{
     const d=new Date(x.arr*1000);
-    const q=new URLSearchParams({from:x.atId||x.at,to:st.to,limit:'5',date:ymd(d),time:hhmm(d)});
-    try{list=(await getJSON(API+'connections?'+q)).connections||[]}catch(e){return}
+    const q=new URLSearchParams({from:x.atId||x.at,to:st.to,limit:'8',date:ymd(d),time:hhmm(d)});
+    try{list=tidy((await getJSON(API+'connections?'+q)).connections||[])}catch(e){return}
   }
   const orig=vkey(x.to);
   st.planB={x,list:list.map(k=>{const r=(k.sections||[]).find(s=>s.journey);if(!r)return null;
@@ -330,8 +355,9 @@ function head(c,a){
   return `<span class="time">${hm(d0)}</span>${late}<span class="arrt">→ ${hm(a1)}</span>`;
 }
 function card(c,a,sel,best){
-  const chips=a.rides.map(r=>`<span class="chip" title="Richtung ${esc(r.journey.to)}">${esc(r.journey.category)} ${esc(r.journey.number||'')}</span>`).join('<span>›</span>');
-  const xf=a.xfers.map(x=>`<div class="xf ${lvl(x.buf)}"><i></i><span>Umstieg ${esc(short(x.at))}</span><b>${bufTxt(x.buf)}</b></div>`).join('');
+  const chips=(c.sections||[]).map(s=>s.journey?`<span class="chip" title="Richtung ${esc(s.journey.to)}">${esc(s.journey.category)} ${esc(s.journey.number||'')}</span>`
+    :`<span class="wchip">${WALK}${mins(walkSec(s))}'</span>`).join('<span>›</span>');
+  const xf=a.xfers.map(x=>`<div class="xf ${lvl(x.buf)}"><i></i><span>Umstieg ${esc(short(x.at))}${x.walk?` · ${mins(x.walk)}' zu Fuss`:''}</span><b>${bufTxt(x.buf)}</b></div>`).join('');
   return `<article tabindex="0" class="${sel?'sel':''}" data-k="${esc(ckey(c))}">
   <div class="r1">${head(c,a)}${best?'<span class="tag">Empfohlen</span>':''}<span class="pill ${a.level}">${LV[a.level]}</span></div>
   <div class="legs">${chips}<span>ab ${esc(short(stn(c.from).name))}</span></div>${xf}</article>`;
@@ -342,11 +368,20 @@ function renderFocus(c,a){
   if(!c||!a){F.innerHTML='';return}
   let h=`<div class="fcard"><div class="fhead">${head(c,a)}<span class="pill ${a.level}">${LV[a.level]}</span></div>`;
   if(a.reach)h+=xbig(`Zu Fuss zur Haltestelle (${Math.round(a.reach.m)} m)`,a.reach.buf);
-  a.rides.forEach((r,k)=>{
+  let k=-1;
+  (c.sections||[]).forEach(s=>{
+    if(!s.journey){
+      const m=mins(walkSec(s)),to=esc(short(stn(s.arrival).name));
+      if(k<0)h+=`<div class="walk"><span class="wi">${WALK}</span><span>${m} Min. zu Fuss zur Haltestelle <b>${to}</b></span><b class="wt">los ${hm(dep(s.departure))}</b></div>`;
+      else if(k===a.rides.length-1)h+=`<div class="walk"><span class="wi">${WALK}</span><span>${m} Min. zu Fuss bis <b>${to}</b></span><b class="wt">an ${hm(arr(s.arrival))}</b></div>`;
+      return;
+    }
+    k++;const r=s;
     h+=`<div class="leg" data-i="${k}"><div class="lh"><span class="ico">${icon(r)}</span><span class="chip">${esc(r.journey.category)} ${esc(r.journey.number||'')}</span><span class="dir">${esc(short(r.journey.to))}</span><b class="ls"></b></div>
     <div class="track"></div>
     <div class="ends"><span>ab ${esc(short(stn(r.departure).name))} <b>${hm(dep(r.departure))}</b></span><span>an ${esc(short(stn(r.arrival).name))} <b>${hm(arr(r.arrival))}</b></span></div></div>`;
-    const x=a.xfers[k];if(x)h+=xbig(`Umstieg ${esc(short(x.at))}`,x.buf);
+    const x=a.xfers[k];
+    if(x)h+=xbig(x.walk&&x.fromAt!==x.at?`Umstieg ${esc(short(x.fromAt))} → ${esc(short(x.at))}<small>${mins(x.walk)} Min. zu Fuss</small>`:`Umstieg ${esc(short(x.at))}`,x.buf);
   });
   if(st.planB&&st.planB.x){
     const x=st.planB.x;
@@ -400,6 +435,8 @@ function drawMap(a){
     st.veh.push({r:it.r,m,label:it.r.journey.number||it.r.journey.name||'?'});
     if(!it.ghost&&P0&&P0.prog<b)pts.push(P0.p);
   }
+  for(const w of a.walks){const p1=ll(w.departure),p2=ll(w.arrival);if(p1&&p2){L.polyline([p1,p2],{color:dark()?'#9aa19d':'#69726d',weight:3,opacity:.8,dashArray:'1 7',lineCap:'round',interactive:false}).addTo(layer);pts.push(p1,p2)}}
+  if(a.walks.length&&a.walks[0]===(st.conns[selIndex()].sections||[])[0]&&ll(a.walks[0].departure))label(ll(a.walks[0].departure),short(stn(a.walks[0].departure).name));
   const first=a.rides[0],lastR=a.rides[a.rides.length-1];
   if(first&&ll(first.departure))label(ll(first.departure),short(stn(first.departure).name));
   a.xfers.forEach(x=>{const p=ll(x.to.departure);if(!p)return;L.circleMarker(p,{radius:10,color:LC[lvl(x.buf)],weight:2.5,fill:false,interactive:false}).addTo(layer);label(p,'Umstieg '+short(x.at))});
@@ -456,6 +493,11 @@ $('#f').addEventListener('submit',e=>{e.preventDefault();st.from=F.value.trim();
   if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();
   try{localStorage.setItem('rb-from',st.from);localStorage.setItem('rb-to',st.to)}catch(_){}load(true)});
 $('#sum').addEventListener('click',()=>{compact(false);F.focus()});
+const MW=$('#mw');
+try{const v=localStorage.getItem('rb-mw');if(v){MW.value=v}}catch(e){}
+st.maxWalk=+MW.value||5;
+MW.addEventListener('change',()=>{st.maxWalk=+MW.value||5;try{localStorage.setItem('rb-mw',MW.value)}catch(e){}
+  if(st.raw.length&&!st.demo){st.conns=tidy(st.raw,st.selKey);render();Promise.all([loadPlanB(),loadApproaches()]).then(render)}});
 $('#swap').addEventListener('click',()=>{const v=F.value;F.value=To.value;To.value=v});
 let acT;
 const ac=e=>{const v=e.target.value.trim();clearTimeout(acT);if(st.demo||v.length<2)return;
