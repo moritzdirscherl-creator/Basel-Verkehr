@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reicht's? Basel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE: nüchternes Werkzeug für unterwegs, in einer Sekunde lesbar
+   IDEA: digitaler Haltestellenanzeiger der BVB – grünes Band, grosse Zeiten, Linienchips
+   PICTURE: die Karte mit genau den Trams/Bussen der gewählten Verbindung, die auf den Umsteigepunkt zufahren
+   COLOUR+TYPE: BVB-Grün dominant, Weiss, Ampel nur für den Puffer; Barlow Semi Condensed für Zeiten, Inter für Text
+   LAYOUT: Telefon: Suche, Karte, Verbindungen gestapelt; breit: Liste links, Karte rechts */
+:root{color-scheme:light dark;--bvb:#0b7a3e;--bg:light-dark(#f3f6f3,#0d1310);--card:light-dark(#fff,#16201a);--ink:light-dark(#0f1a13,#e6eee8);--muted:light-dark(#56665c,#94a59b);--line:light-dark(#dde4df,#26332b);--ok:#1f9d55;--warn:#d99a00;--bad:#d23b2f}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,system-ui,sans-serif;overflow-x:clip;display:flex;flex-direction:column}
+.num,.time,.chip,h1{font-family:"Barlow Semi Condensed",Inter,sans-serif}
+header{background:var(--bvb);color:#fff;padding:14px max(4vw,14px) 14px}
+h1{margin:0;font-size:32px;line-height:1.05;font-weight:700}
+h1 span{font-weight:500;font-size:17px;opacity:.85;margin-left:8px}
+form{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:8px;margin-top:12px;max-width:760px}
+.fields{display:grid;gap:6px}
+input{width:100%;font:16px Inter,sans-serif;padding:10px 12px;border:0;border-radius:8px;background:#fff;color:#0f1a13;min-height:44px}
+input:focus-visible,button:focus-visible,article:focus-visible{outline:3px solid #ffe14d;outline-offset:2px}
+button{font:600 15px Inter,sans-serif;border:0;border-radius:8px;min-height:44px;cursor:pointer}
+.swap{background:rgba(255,255,255,.18);color:#fff;font-size:20px}
+.actions{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap}
+.go{background:#fff;color:var(--bvb);padding:0 18px}
+.ghostbtn{background:transparent;color:#fff;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.6);padding:0 14px}
+.status{font-size:13px;color:var(--muted);padding:8px max(4vw,14px);border-bottom:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between}
+.status b{color:var(--ink);font-weight:600}
+.demo{background:light-dark(#fff6d6,#3a3010);color:light-dark(#5a4500,#ffe7a3);padding:8px max(4vw,14px);font-size:14px;display:none}
+.demo.on{display:block}
+main{flex:1;display:flex;flex-direction:column}
+#map{height:44vh;min-height:260px;background:light-dark(#e9eee9,#1a231d)}
+#list{padding:12px max(4vw,14px) 40px;display:grid;gap:10px;align-content:start}
+@media(min-width:900px){main{display:grid;grid-template-columns:minmax(0,440px) minmax(0,1fr);min-height:0}#map{height:auto;order:2}#list{order:1;overflow:auto;max-height:calc(100vh - 200px)}}
+article{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer}
+article.sel{border-color:var(--c);box-shadow:0 0 0 2px var(--c)}
+.r1{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.time{font-size:30px;font-weight:700;line-height:1}
+.arrt{font-size:20px;font-weight:600;color:var(--muted)}
+.late{color:var(--bad);font:600 15px "Barlow Semi Condensed",sans-serif}
+.pill{margin-left:auto;font-size:13px;font-weight:600;padding:3px 10px;border-radius:99px;color:#fff;white-space:nowrap}
+.pill.ok{background:var(--ok)}.pill.warn{background:var(--warn);color:#2a1f00}.pill.bad{background:var(--bad)}.pill.direct{background:var(--muted)}
+.tag{font-size:12px;font-weight:600;color:var(--bvb);background:light-dark(#e3f3e9,#123522);padding:2px 8px;border-radius:99px}
+.legs{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0 2px;font-size:13px;color:var(--muted)}
+.chip{background:light-dark(#e6ece8,#26332b);color:var(--ink);font-weight:700;font-size:15px;padding:1px 8px;border-radius:5px;white-space:nowrap}
+.xf{display:flex;align-items:center;gap:8px;font-size:14px;margin-top:6px}
+.xf i{width:10px;height:10px;border-radius:50%;flex:none;background:var(--muted)}
+.xf.ok i{background:var(--ok)}.xf.warn i{background:var(--warn)}.xf.bad i{background:var(--bad)}
+.xf b{margin-left:auto;font-weight:600;white-space:nowrap}
+.xf.bad b{color:var(--bad)}
+.planb{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
+.planb h3{margin:0 0 4px;font-size:14px;font-weight:600}
+.planb ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.planb li{display:flex;gap:8px;align-items:center;font-size:14px}
+.planb .num{font-size:18px;font-weight:700;min-width:44px}
+.empty,.note{color:var(--muted);font-size:14px}
+/* Leaflet (nötiger Teil, inline) */
+.leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-tile-container,.leaflet-pane>svg,.leaflet-pane>canvas,.leaflet-layer{position:absolute;left:0;top:0}
+.leaflet-container{overflow:hidden;position:relative;outline:0;font:inherit;-webkit-tap-highlight-color:transparent}
+.leaflet-container.leaflet-touch-drag.leaflet-touch-zoom{touch-action:none}
+.leaflet-tile,.leaflet-marker-icon{user-select:none;-webkit-user-drag:none}
+.leaflet-container img.leaflet-tile{max-width:none!important;max-height:none!important;width:256px;height:256px}
+.leaflet-container .leaflet-overlay-pane svg{max-width:none!important;max-height:none!important}
+.leaflet-tile{visibility:hidden}.leaflet-tile-loaded{visibility:inherit}
+.leaflet-pane{z-index:400}.leaflet-tile-pane{z-index:200}.leaflet-overlay-pane{z-index:400}.leaflet-marker-pane{z-index:600}
+.leaflet-zoom-animated{transform-origin:0 0}
+.leaflet-zoom-anim .leaflet-zoom-animated{transition:transform .25s cubic-bezier(0,0,.25,1)}
+.leaflet-zoom-anim .leaflet-tile,.leaflet-pan-anim .leaflet-tile{transition:none}
+.leaflet-interactive{cursor:pointer}
+.leaflet-top,.leaflet-bottom{position:absolute;z-index:1000;pointer-events:none}
+.leaflet-top{top:0}.leaflet-bottom{bottom:0}.leaflet-left{left:0}.leaflet-right{right:0}
+.leaflet-control{position:relative;z-index:800;pointer-events:auto;float:left;clear:both}
+.leaflet-right .leaflet-control{float:right}
+.leaflet-bar{margin:10px;border-radius:8px;overflow:hidden;box-shadow:0 1px 5px rgba(0,0,0,.3)}
+.leaflet-bar a{display:block;width:36px;height:36px;line-height:36px;text-align:center;background:var(--card);color:var(--ink);text-decoration:none;font:600 20px/36px system-ui}
+.leaflet-control-attribution{font-size:11px;background:rgba(255,255,255,.8);color:#333;padding:0 5px}
+.leaflet-control-attribution a{color:#333}
+.vwrap{transition:transform 1s linear}
+.leaflet-zoom-anim .vwrap{transition:none}
+.veh{position:absolute;width:24px;height:24px;left:-12px;top:-12px;border-radius:50%;background:var(--c);display:grid;place-items:center;
+  box-shadow:0 0 0 2px rgba(255,255,255,.95),0 0 10px 3px var(--c),0 0 26px 8px color-mix(in srgb,var(--c) 45%,transparent)}
+.veh svg{width:14px;height:14px;fill:#fff}
+.veh::after{content:"";position:absolute;inset:0;border-radius:50%;box-shadow:0 0 0 2px var(--c);animation:pulse 2s ease-out infinite}
+@keyframes pulse{from{transform:scale(1);opacity:.8}to{transform:scale(2.4);opacity:0}}
+.veh b{position:absolute;left:30px;top:50%;transform:translateY(-50%);font:700 14px "Barlow Semi Condensed",sans-serif;color:light-dark(#0f1a13,#fff);white-space:nowrap;text-shadow:0 0 3px light-dark(#fff,#000),0 0 3px light-dark(#fff,#000)}
+.veh.wait{opacity:.55}.veh.wait::after{animation:none;opacity:0}
+.veh.ghost{width:18px;height:18px;left:-9px;top:-9px;box-shadow:0 0 0 2px rgba(255,255,255,.9),0 0 8px 2px var(--c)}
+.veh.ghost svg{width:11px;height:11px}.veh.ghost::after{animation-duration:3s}
+.cdot{width:12px;height:12px;border-radius:50%;background:var(--c);box-shadow:0 0 6px var(--c);flex:none;align-self:center}
+.slab{position:absolute;transform:translate(10px,-50%);font:600 12px Inter,sans-serif;color:light-dark(#0f1a13,#e6eee8);white-space:nowrap;text-shadow:0 0 3px light-dark(#fff,#000),0 0 3px light-dark(#fff,#000)}
+@media(prefers-reduced-motion:reduce){.vwrap{transition:none}.veh::after{animation:none;opacity:0}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Reicht's?<span>Basel · Tram &amp; Bus live</span></h1>
+  <form id="f">
+    <div class="fields">
+      <input id="from" list="stations" autocomplete="off" aria-label="Von" placeholder="Von (Haltestelle)">
+      <input id="to" list="stations" autocomplete="off" aria-label="Nach" placeholder="Nach (Haltestelle)">
+    </div>
+    <button type="button" class="swap" id="swap" aria-label="Von und Nach tauschen">⇅</button>
+    <div class="actions">
+      <button class="go" type="submit">Verbindungen ab jetzt</button>
+      <button type="button" class="ghostbtn" id="gps">Mein Standort einbeziehen</button>
+    </div>
+    <datalist id="stations"></datalist>
+  </form>
+</header>
+<div class="demo" id="demo">Demo-Daten: Die Fahrplan-API (transport.opendata.ch) ist von hier aus nicht erreichbar. In der Claude-Vorschau ist das normal, live läuft die Seite z.B. auf GitHub Pages.</div>
+<div class="status"><span id="st">Bereit</span><span>Positionen berechnet aus Fahrplan + Echtzeit-Prognose</span></div>
+<main>
+  <div id="map" aria-label="Karte mit den Fahrzeugen der gewählten Verbindung"></div>
+  <section id="list" aria-live="polite"><p class="empty">Von und Nach eingeben, dann «Verbindungen ab jetzt».</p></section>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+window.addEventListener('error',e=>{const s=document.getElementById('st');if(s)s.textContent='Fehler: '+(e.message||'Skript');});
+window.addEventListener('unhandledrejection',e=>{const s=document.getElementById('st');if(s)s.textContent='Fehler: '+((e.reason&&e.reason.message)||e.reason);});
+{
+const API='https://transport.opendata.ch/v1/';
+const CONN=['#00c853','#2979ff','#ff6d00','#d500f9','#00b8d4'];
+const PB=['#ffc400','#ff4081','#76ff03'];
+const cc=i=>CONN[i%CONN.length];
+const ICON={T:'<svg viewBox="0 0 24 24"><path d="M9 0h6v2H9zM7 3h10a2 2 0 0 1 2 2v10a3 3 0 0 1-2 2.8l1.5 2.2H16l-1.3-2H9.3L8 20H5.5L7 17.8A3 3 0 0 1 5 15V5a2 2 0 0 1 2-2zm0 3v5h10V6zm1.5 7.5a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4zm7 0a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4z"/></svg>',
+  B:'<svg viewBox="0 0 24 24"><path d="M6 2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-1 1.7V20h-2.5v-2h-9v2H5v-2.3A2 2 0 0 1 4 16V4a2 2 0 0 1 2-2zm0 3v6h12V5zm1.5 8a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6zm9 0a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6z"/></svg>'};
+const icon=r=>/^(B|NFB|BUS|KB)$/i.test(r.journey.category||'')?ICON.B:ICON.T;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const T=s=>{if(!s)return null;const v=Date.parse(String(s).replace(/([+-]\d\d)(\d\d)$/,'$1:$2'));return isNaN(v)?null:v/1000};
+const now=()=>Date.now()/1000;
+const hm=t=>t==null?'–':new Date(t*1000).toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'});
+const ymd=d=>d.toLocaleDateString('sv-SE');
+const hhmm=d=>d.toTimeString().slice(0,5);
+const dep=p=>p?(T(p.prognosis&&p.prognosis.departure)??(p.departureTimestamp!=null?p.departureTimestamp+(p.delay||0)*60:null)):null;
+const arr=p=>p?(T(p.prognosis&&p.prognosis.arrival)??(p.arrivalTimestamp!=null?p.arrivalTimestamp+(p.delay||0)*60:null)):null;
+const stn=p=>p&&(p.station||p.location)||{};
+const ll=p=>{const c=stn(p).coordinate||{};const a=+c.x,b=+c.y;return a&&b&&isFinite(a)&&isFinite(b)?[Math.max(a,b),Math.min(a,b)]:null};
+const short=n=>String(n||'').replace(/^Basel,\s*/,'');
+const vkey=r=>(r.journey.name||r.journey.number)+'@'+(r.departure&&r.departure.departureTimestamp);
+const ckey=c=>(c.sections||[]).filter(s=>s.journey).map(vkey).join('|');
+const lvl=b=>b==null?'direct':b<0?'bad':b<120?'warn':'ok';
+const LV={ok:'Reicht',warn:'Knapp',bad:'Reicht nicht',direct:'Direkt'};
+const LC={ok:'#1f9d55',warn:'#d99a00',bad:'#d23b2f',direct:'#56665c'};
+const hav=(a,b)=>{const R=6371e3,r=Math.PI/180,dLa=(b[0]-a[0])*r,dLo=(b[1]-a[1])*r;const h=Math.sin(dLa/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(h))};
+const bufTxt=b=>b==null?'?':b<0?`${Math.ceil(-b/60)} Min. zu spät`:b<60?'unter 1 Min. Puffer':`${Math.floor(b/60)} Min. Puffer`;
+const st={from:'',to:'',time:new Date(),conns:[],selKey:null,demo:false,updated:0,planB:null,me:null,prog:new Map(),fitKey:'',veh:[],busy:false};
+
+function walkSec(s){
+  const a=s.departure&&s.departure.departureTimestamp,b=s.arrival&&s.arrival.arrivalTimestamp;
+  if(a&&b&&b>a)return b-a;
+  const d=s.walk&&s.walk.duration;if(d==null)return 120;
+  if(typeof d==='number')return d>=60?d:d*60;
+  const p=String(d).split(/[:d]/).map(Number).slice(-3);return (p[0]||0)*3600+(p[1]||0)*60+(p[2]||0);
+}
+function analyse(c){
+  const rides=[],xfers=[];let walk=0,last=null;
+  for(const s of c.sections||[]){
+    if(s.journey){
+      if(last){
+        const a=arr(last.arrival),d=dep(s.departure);
+        const same=stn(last.arrival).id&&stn(last.arrival).id===stn(s.departure).id;
+        const need=walk||(same?60:180);
+        xfers.push({at:stn(s.departure).name||'',atId:stn(s.departure).id,from:last,to:s,arr:a,dep:d,need,buf:a!=null&&d!=null?d-a-need:null});
+      }
+      rides.push(s);last=s;walk=0;
+    } else walk+=walkSec(s);
+  }
+  let reach=null;
+  if(st.me&&rides[0]){const p=ll(rides[0].departure),d=dep(rides[0].departure);if(p&&d){const m=hav(st.me,p)*1.3;reach={m,buf:d-now()-m/1.25}}}
+  const bufs=xfers.map(x=>x.buf).filter(b=>b!=null);if(reach)bufs.push(reach.buf);
+  const min=bufs.length?Math.min(...bufs):null;
+  return {rides,xfers,reach,min,level:lvl(min)};
+}
+function selIndex(){const i=st.conns.findIndex(c=>ckey(c)===st.selKey);return i<0?0:i}
+
+async function getJSON(url){
+  const ac=typeof AbortController!=='undefined'?new AbortController():null;
+  const to=setTimeout(()=>ac&&ac.abort(),7000);
+  try{const r=await fetch(url,ac?{signal:ac.signal}:{});if(!r.ok){const e=new Error('HTTP '+r.status);e.http=r.status;throw e}return await r.json()}
+  finally{clearTimeout(to)}
+}
+
+async function load(fresh){
+  if(st.busy)return;st.busy=true;
+  try{
+    if(fresh){st.time=new Date();st.selKey=null;st.prog.clear();st.fitKey=''}
+    setStatus('Lade …');
+    if(!st.demo){
+      const q=new URLSearchParams({from:st.from,to:st.to,limit:'5',date:ymd(st.time),time:hhmm(st.time)});
+      try{const j=await getJSON(API+'connections?'+q);st.conns=j.connections||[];st.live=true;addTiles()}
+      catch(e){
+        if(e.http){setStatus(`Fehler ${e.http} – API nicht erreichbar oder Limit erreicht`);return}
+        if(st.live){setStatus('Keine Verbindung zur API – zeige letzten Stand');return}
+        st.demo=true;$('#demo').classList.add('on');
+      }
+    }
+    if(st.demo)st.conns=demoConns();
+    if(st.selKey==null&&st.conns[0])st.selKey=ckey(st.conns[0]);
+    st.updated=now();
+    await loadPlanB();
+    render();
+  }finally{st.busy=false}
+}
+
+async function loadPlanB(){
+  st.planB=null;const c=st.conns[selIndex()];if(!c)return;
+  const x=analyse(c).xfers[0];if(!x||x.arr==null)return;
+  let list;
+  if(st.demo)list=demoPlanB();
+  else{
+    const d=new Date(x.arr*1000);
+    const q=new URLSearchParams({from:x.atId||x.at,to:st.to,limit:'5',date:ymd(d),time:hhmm(d)});
+    try{list=(await getJSON(API+'connections?'+q)).connections||[]}catch(e){return}
+  }
+  const orig=vkey(x.to);
+  st.planB={x,list:list.map(k=>{const r=(k.sections||[]).find(s=>s.journey);if(!r)return null;
+    const same=stn(r.departure).id===x.atId;const buf=dep(r.departure)-x.arr-(same?60:180);
+    return {k,r,buf}}).filter(o=>o&&vkey(o.r)!==orig&&o.buf>=0).slice(0,3)};
+}
+
+function render(){
+  const A=st.conns.map(analyse),si=selIndex();
+  const best=A[0]&&A[0].level==='bad'?A.findIndex(a=>a.level!=='bad'):-1;
+  $('#list').innerHTML=st.conns.length?st.conns.map((c,i)=>card(c,A[i],i,i===si,i===best)).join('')+
+    '<p class="note">Antippen wählt die Verbindung für die Karte. Bleibt gewählt, auch wenn du schon drinsitzt – die Liste aktualisiert sich alle 30 s.</p>'
+    :'<p class="empty">Keine Verbindung gefunden. Haltestellennamen prüfen (z.B. «Basel, Barfüsserplatz»).</p>';
+  drawMap(A[si],cc(si));
+}
+function card(c,a,i,sel,best){
+  const d0=dep(c.from),d0p=c.from&&c.from.departureTimestamp,a1=arr(c.to);
+  const late=d0p&&d0-d0p>=60?`<span class="late">+${Math.round((d0-d0p)/60)}</span>`:'';
+  const chips=a.rides.map(r=>`<span class="chip" title="Richtung ${esc(r.journey.to)}">${esc(r.journey.category)} ${esc(r.journey.number||'')}</span>`).join('<span>›</span>');
+  const xf=a.xfers.map(x=>`<div class="xf ${lvl(x.buf)}"><i></i><span>Umstieg ${esc(short(x.at))}</span><b>${bufTxt(x.buf)}</b></div>`).join('');
+  const rc=a.reach?`<div class="xf ${lvl(a.reach.buf)}"><i></i><span>Zu Fuss zur Haltestelle, ca. ${Math.round(a.reach.m)} m</span><b>${bufTxt(a.reach.buf)}</b></div>`:'';
+  let pb='';
+  if(sel&&st.planB){
+    const x=st.planB.x;
+    pb=`<div class="planb"><h3>Plan B ab ${esc(short(x.at))} (du bist dort ca. ${hm(x.arr)})</h3>`+(st.planB.list.length?'<ul>'+st.planB.list.map((o,j)=>
+      `<li><span class="cdot" style="--c:${PB[j%PB.length]}"></span><span class="num">${hm(dep(o.r.departure))}</span><span class="chip">${esc(o.r.journey.category)} ${esc(o.r.journey.number||'')}</span><span>an ${hm(arr(o.k.to))}</span></li>`).join('')+'</ul>':'<p class="note">Keine erreichbare Alternative gefunden.</p>')+'</div>';
+  }
+  return `<article tabindex="0" class="${sel?'sel':''}" style="--c:${cc(i)}" data-k="${esc(ckey(c))}">
+  <div class="r1"><span class="cdot"></span><span class="time">${hm(d0)}</span>${late}<span class="arrt">→ ${hm(a1)}</span>${best?'<span class="tag">Empfohlen</span>':''}<span class="pill ${a.level}">${LV[a.level]}</span></div>
+  <div class="legs">${chips}<span>ab ${esc(short(stn(c.from).name))}${c.from&&c.from.platform?' · Kante '+esc(c.from.platform):''}</span></div>${rc}${xf}${pb}</article>`;
+}
+
+let map=null,layer,vehLayer,tiles=null;
+if(window.L){
+  map=L.map('map',{zoomControl:true}).setView([47.5576,7.5880],14);
+  layer=L.layerGroup().addTo(map);vehLayer=L.layerGroup().addTo(map);
+}
+function addTiles(){
+  if(!map||tiles)return;
+  const t=document.documentElement.dataset.theme;
+  const dark=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);
+  tiles=L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark?'dark_all':'light_all'}/{z}/{x}/{y}{r}.png`,{maxZoom:19,subdomains:'abcd',attribution:'© OpenStreetMap-Mitwirkende © CARTO · Daten: transport.opendata.ch'}).addTo(map);
+}
+const label=(p,txt)=>L.marker(p,{interactive:false,keyboard:false,icon:L.divIcon({className:'',iconSize:[0,0],html:`<div class="slab">${esc(txt)}</div>`})}).addTo(layer);
+function drawMap(a,col){
+  st.veh=[];if(!map)return;
+  layer.clearLayers();vehLayer.clearLayers();
+  if(!a)return;
+  const items=a.rides.map(r=>({r,col,ghost:false}));
+  if(st.planB)st.planB.list.forEach((o,j)=>items.push({r:o.r,col:PB[j%PB.length],ghost:true}));
+  const pts=[];
+  for(const it of items){
+    const pl=(it.r.journey.passList||[]).map(ll).filter(Boolean);if(pl.length<2)continue;
+    if(!it.ghost)pts.push(...pl);
+    L.polyline(pl,{color:it.col,weight:it.ghost?2:4,opacity:it.ghost?.3:.4,dashArray:it.ghost?'3 6':null,lineCap:'round',interactive:false}).addTo(layer);
+    if(!it.ghost)pl.forEach((p,j)=>L.circleMarker(p,{radius:j===0||j===pl.length-1?4:2.5,color:'#8a968e',weight:1.5,fillColor:'#fff',fillOpacity:1,interactive:false}).addTo(layer));
+    const P0=pos(it.r,vkey(it.r));
+    const m=L.marker(P0&&P0.p||pl[0],{interactive:false,keyboard:false,icon:L.divIcon({className:'vwrap',iconSize:[0,0],html:`<div class="veh${it.ghost?' ghost':''}" style="--c:${it.col}">${icon(it.r)}<b></b></div>`})}).addTo(vehLayer);
+    st.veh.push({r:it.r,key:vkey(it.r),m,label:it.r.journey.number||it.r.journey.name||'?'});
+  }
+  const first=a.rides[0],lastR=a.rides[a.rides.length-1];
+  if(first&&ll(first.departure))label(ll(first.departure),short(stn(first.departure).name));
+  a.xfers.forEach(x=>{const p=ll(x.to.departure);if(!p)return;L.circleMarker(p,{radius:10,color:LC[lvl(x.buf)],weight:2.5,fill:false,interactive:false}).addTo(layer);label(p,'Umstieg '+short(x.at))});
+  if(lastR&&ll(lastR.arrival))label(ll(lastR.arrival),short(stn(lastR.arrival).name));
+  if(st.me)L.circleMarker(st.me,{radius:7,color:'#fff',weight:3,fillColor:'#1e5bd6',fillOpacity:1,interactive:false}).addTo(layer);
+  if(pts.length&&st.fitKey!==st.selKey){map.fitBounds(pts,{padding:[40,40],maxZoom:16});st.fitKey=st.selKey}
+  tick();
+}
+
+function pos(r,key){
+  const pl=(r.journey.passList||[]).filter(p=>ll(p));if(pl.length<2)return null;
+  const t=now(),n=pl.length-1;
+  const tA=i=>arr(pl[i])??dep(pl[i]),tD=i=>dep(pl[i])??arr(pl[i]);
+  if(tD(0)!=null&&t<tD(0))return{p:ll(pl[0]),wait:Math.max(0,Math.ceil((tD(0)-t)/60))};
+  if(tA(n)!=null&&t>=tA(n)+30)return{done:true};
+  let prog=n;
+  for(let i=0;i<n;i++){
+    if(t<tD(i)){prog=i;break}
+    if(t<tA(i+1)){prog=i+(t-tD(i))/Math.max(1,tA(i+1)-tD(i));break}
+  }
+  const old=st.prog.get(key);if(old!=null&&prog<old&&old-prog<1.5)prog=old;st.prog.set(key,prog);
+  const i=Math.min(Math.floor(prog),n-1),f=Math.min(1,prog-i),a=ll(pl[i]),b=ll(pl[i+1]);
+  return{p:[a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f]};
+}
+function tick(){
+  for(const v of st.veh){
+    const el=v.m.getElement();if(!el)continue;const box=el.firstChild,P=pos(v.r,v.key);
+    if(!P||P.done){el.style.display='none';continue}
+    el.style.display='';v.m.setLatLng(P.p);
+    const b=box.querySelector('b'),txt=v.label+(P.wait!=null?` · in ${P.wait}'`:'');
+    if(b&&b.textContent!==txt)b.textContent=txt;
+    box.classList.toggle('wait',P.wait!=null);
+  }
+  if(st.updated&&!st.busy)setStatus(st.demo?'<b>Demo</b> · Fahrzeuge bewegen sich in Echtzeit':`<b>Live</b> · aktualisiert vor ${Math.round(now()-st.updated)} s`);
+}
+function setStatus(h){$('#st').innerHTML=h}
+
+/* Demo-Daten im Format von transport.opendata.ch, Zeiten relativ zu jetzt */
+const S={ALL:['Basel, Allschwilerplatz','8589293',47.557241,7.570579],BRA:['Basel, Brausebad','8581062',47.555537,7.575861],SCH:['Basel, Schützenhaus','8589360',47.553203,7.577092],ZOO:['Basel, Zoo Bachletten','8589381',47.550881,7.580451],HEU:['Basel, Heuwaage','8500079',47.551269,7.588051],THE:['Basel, Theater','8500994',47.553124,7.589776],BAR:['Basel, Barfüsserplatz','8500897',47.554591,7.589057],BAN:['Basel, Bankverein','8500896',47.55365,7.59245],KUN:['Basel, Kunstmuseum','8500893',47.5547,7.5944],WET:['Basel, Wettsteinplatz','8500898',47.5596,7.5961]};
+const T0=Math.floor(now()/60)*60;
+const iso=t=>new Date(t*1000).toISOString();
+function dpass(k,m,d){const[name,id,x,y]=S[k],ts=T0+m*60;return{station:{id,name,coordinate:{type:'WGS84',x,y}},arrivalTimestamp:ts,departureTimestamp:ts,delay:d,prognosis:{arrival:iso(ts+d*60),departure:iso(ts+d*60)}}}
+function dride(cat,num,to,stops,d){const pl=stops.map(([k,m])=>dpass(k,m,d));return{journey:{name:cat+num+'-'+stops[0][1],category:cat,number:num,to,passList:pl},departure:pl[0],arrival:pl[pl.length-1]}}
+function dconn(...rides){return{from:rides[0].departure,to:rides[rides.length-1].arrival,sections:rides}}
+const six=(o,d)=>dride('T','6','Riehen Grenze',[['ALL',o-4],['BRA',o-2],['SCH',o-1],['ZOO',o+1],['HEU',o+3],['THE',o+4],['BAR',o+5]],d);
+const two=(o,d)=>dride('T','2','Eglisee',[['BAR',o],['BAN',o+1],['KUN',o+2],['WET',o+5]],d);
+function demoConns(){return[dconn(six(0,3),two(8,0)),dconn(six(8,0),two(18,1)),dconn(six(15,1),two(25,0))]}
+function demoPlanB(){return[dconn(two(15,0)),dconn(two(22,1))]}
+
+/* Bedienung */
+const F=$('#from'),To=$('#to');
+try{F.value=localStorage.getItem('rb-from')||'Basel, Allschwilerplatz';To.value=localStorage.getItem('rb-to')||'Basel, Wettsteinplatz'}catch(e){F.value='Basel, Allschwilerplatz';To.value='Basel, Wettsteinplatz'}
+$('#f').addEventListener('submit',e=>{e.preventDefault();st.from=F.value.trim();st.to=To.value.trim();if(!st.from||!st.to)return;
+  try{localStorage.setItem('rb-from',st.from);localStorage.setItem('rb-to',st.to)}catch(_){}load(true)});
+$('#swap').addEventListener('click',()=>{const v=F.value;F.value=To.value;To.value=v});
+let acT;
+const ac=e=>{const v=e.target.value.trim();clearTimeout(acT);if(st.demo||v.length<2)return;
+  acT=setTimeout(async()=>{try{const j=await getJSON(API+'locations?type=station&query='+encodeURIComponent(v));
+    $('#stations').innerHTML=(j.stations||[]).filter(s=>s.id&&s.name).slice(0,8).map(s=>`<option value="${esc(s.name)}"></option>`).join('')}catch(_){}},250)};
+F.addEventListener('input',ac);To.addEventListener('input',ac);
+const pick=el=>{const a=el.closest('article');if(!a)return;st.selKey=a.dataset.k;loadPlanB().then(render)};
+$('#list').addEventListener('click',e=>pick(e.target));
+$('#list').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick(e.target)}});
+$('#gps').addEventListener('click',()=>{
+  const b=$('#gps');
+  if(!navigator.geolocation){b.textContent='Standort nicht verfügbar';return}
+  try{navigator.geolocation.watchPosition(p=>{st.me=[p.coords.latitude,p.coords.longitude];b.textContent='Standort aktiv';if(st.conns.length)render()},
+    ()=>{b.textContent='Standort gesperrt'},{enableHighAccuracy:true,maximumAge:10000})}catch(e){b.textContent='Standort gesperrt'}
+});
+setInterval(tick,1000);
+setInterval(()=>{if(!document.hidden&&st.conns.length&&!st.demo)load(false)},30000);
+st.from=F.value.trim();st.to=To.value.trim();load(true);
+}
+</script>
+</body>
+</html>
