@@ -5,8 +5,24 @@ import json, math, time, urllib.parse, urllib.request, datetime, sys
 
 BBOX = (47.40, 7.45, 47.66, 7.82)  # S, W, N, E
 QUERY = f"""[out:json][timeout:300];
-relation["type"="route"]["route"~"^(tram|bus|trolleybus)$"]({BBOX[0]},{BBOX[1]},{BBOX[2]},{BBOX[3]});
+relation["type"="route"]["route"~"^(tram|bus|trolleybus|train|light_rail)$"]({BBOX[0]},{BBOX[1]},{BBOX[2]},{BBOX[3]});
 out geom;"""
+# Bahnlinien werden auf diese Region zugeschnitten (Fernzüge reichen sonst bis Hamburg)
+CLIP = (47.25, 7.20, 47.80, 8.10)
+def inclip(p):
+    return CLIP[0] <= p[0] <= CLIP[2] and CLIP[1] <= p[1] <= CLIP[3]
+
+def kind(tags):
+    r = tags.get("route")
+    if r in ("bus", "trolleybus"):
+        return "bus"
+    if r in ("train", "light_rail"):
+        return "train"
+    return "tram"
+
+def norm_ref(ref, k):
+    return ref.replace(" ", "").upper() if k == "train" else ref
+
 SERVERS = [
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
@@ -93,12 +109,15 @@ def main():
                 if m.get("type") == "way" and m.get("geometry")
                 and not str(m.get("role", "")).startswith(("platform", "stop"))]
         ways = [w for w in ways if len(w) > 1]
+        k = kind(tags)
+        if k == "train":
+            ways = [w for w in ways if any(inclip(p) for p in w)]
         if not ways:
             continue
-        line = rdp(chain(ways))
+        line = rdp(chain(ways), 6.0 if k == "train" else 3.0)
         routes.append({
-            "t": "bus" if tags.get("route") in ("bus", "trolleybus") else "tram",
-            "r": ref,
+            "t": k,
+            "r": norm_ref(ref, k),
             "n": tags.get("name", ""),
             "l": [[round(a, 5), round(b, 5)] for a, b in line],
         })

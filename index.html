@@ -613,12 +613,13 @@ function geoFor(r){
   if(!GEO.idx)return null;
   const{pl}=listFor(r),key=vkey(r)+'|'+pl.length;
   if(GFIT.has(key))return GFIT.get(key);
-  const md=mode(r);if(md==='train'||md==='ship')return null;
-  const cand=GEO.idx.get(md+'|'+r.journey.number)||[];
+  const md=mode(r);if(md==='ship')return null;
+  const tol=md==='train'?250:80;
+  const cand=GEO.idx.get(md+'|'+(md==='train'?lineLabel(r).replace(/\s/g,'').toUpperCase():r.journey.number))||[];
   let best=null;
   for(const s of cand){
     let i0=0,ok=true,sum=0;const ds=[];
-    for(const q of pl){const P=ll(q),x=P&&proj(s,P,i0);if(!x||x.dist>80){ok=false;break}
+    for(const q of pl){const P=ll(q),x=P&&proj(s,P,i0);if(!x||x.dist>tol){ok=false;break}
       ds.push(ds.length?Math.max(ds[ds.length-1],x.d):x.d);i0=x.i;sum+=x.dist}
     if(ok&&(!best||sum<best.sum))best={s,ds,sum};
   }
