@@ -570,6 +570,60 @@ function listFor(r){
   const pl=[...a.slice(0,-1),r.departure,...(r.journey.passList||[]).slice(1,-1),r.arrival].filter(p=>ll(p));
   return {pl,b:Math.max(0,pl.indexOf(r.departure))};
 }
+/* ---------- Echte Linienverläufe (OpenStreetMap, shapes.json) ---------- */
+const GEO={idx:null,p:null},GFIT=new Map(),WGEO=new Map();
+function loadShapes(){
+  if(!GEO.p)GEO.p=fetch('shapes.json',{cache:'force-cache'}).then(r=>r.ok?r.json():null).then(j=>{
+    const m=new Map();
+    for(const s of (j&&j.routes)||[]){if(!s.l||s.l.length<2)continue;const k=s.t+'|'+s.r;const c=[0];
+      for(let i=1;i<s.l.length;i++)c.push(c[i-1]+hav(s.l[i-1],s.l[i]));(m.get(k)||m.set(k,[]).get(k)).push({l:s.l,c})}
+    GEO.idx=m;GFIT.clear();if(st.conns.length)render();
+  }).catch(()=>{GEO.idx=new Map()});
+  return GEO.p;
+}
+function proj(s,p,i0){
+  const k=Math.cos(p[0]*Math.PI/180)*111320,K=110540;let best=null;
+  for(let i=Math.max(0,i0);i<s.l.length-1;i++){
+    const a=s.l[i],b=s.l[i+1],ax=(a[1]-p[1])*k,ay=(a[0]-p[0])*K,bx=(b[1]-p[1])*k,by=(b[0]-p[0])*K;
+    const dx=bx-ax,dy=by-ay,L=dx*dx+dy*dy,t=L?Math.max(0,Math.min(1,-(ax*dx+ay*dy)/L)):0;
+    const x=ax+t*dx,y=ay+t*dy,dist=Math.sqrt(x*x+y*y);
+    if(!best||dist<best.dist-0.5)best={dist,i,d:s.c[i]+t*(s.c[i+1]-s.c[i])};
+    if(best.dist<15&&dist>best.dist+400)break; /* nächste Haltestelle nicht hinter einer Schleife suchen */
+  }
+  return best;
+}
+function geoFor(r){
+  if(!GEO.idx)return null;
+  const{pl}=listFor(r),key=vkey(r)+'|'+pl.length;
+  if(GFIT.has(key))return GFIT.get(key);
+  const cand=GEO.idx.get((isBus(r)?'bus':'tram')+'|'+r.journey.number)||[];
+  let best=null;
+  for(const s of cand){
+    let i0=0,ok=true,sum=0;const ds=[];
+    for(const q of pl){const P=ll(q),x=P&&proj(s,P,i0);if(!x||x.dist>80){ok=false;break}
+      ds.push(ds.length?Math.max(ds[ds.length-1],x.d):x.d);i0=x.i;sum+=x.dist}
+    if(ok&&(!best||sum<best.sum))best={s,ds,sum};
+  }
+  GFIT.set(key,best);return best;
+}
+function along(s,d){
+  let lo=0,hi=s.c.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(s.c[m]<=d)lo=m;else hi=m}
+  const seg=s.c[hi]-s.c[lo],t=seg?(d-s.c[lo])/seg:0,a=s.l[lo],b=s.l[hi];
+  return[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
+}
+function slice(s,d1,d2){
+  const out=[along(s,d1)];for(let i=0;i<s.c.length;i++)if(s.c[i]>d1&&s.c[i]<d2)out.push(s.l[i]);out.push(along(s,d2));return out;
+}
+/* Fusswege entlang echter Wege (routing.openstreetmap.de) */
+function walkLine(p1,p2){
+  const k=p1.map(x=>x.toFixed(5)).join(',')+'|'+p2.map(x=>x.toFixed(5)).join(',');
+  if(WGEO.has(k))return WGEO.get(k);
+  WGEO.set(k,null);
+  getJSON(`https://routing.openstreetmap.de/routed-foot/route/v1/driving/${p1[1]},${p1[0]};${p2[1]},${p2[0]}?overview=full&geometries=geojson`)
+    .then(j=>{const c=j&&j.routes&&j.routes[0]&&j.routes[0].geometry.coordinates;if(c&&c.length>1){WGEO.set(k,c.map(x=>[x[1],x[0]]));if(st.cur&&st.cur.a)drawMap(st.cur.a)}}).catch(()=>{});
+  return null;
+}
+
 function pos(r){
   const {pl,b}=listFor(r),n=pl.length-1;if(n<1)return null;
   const t=now(),tA=i=>arr(pl[i])??dep(pl[i]),tD=i=>dep(pl[i])??arr(pl[i]);
@@ -581,8 +635,9 @@ function pos(r){
     if(t<tA(i+1)){prog=i+(t-tD(i))/Math.max(1,tA(i+1)-tD(i));break}
   }
   const key=vkey(r),old=st.prog.get(key);if(old!=null&&prog<old&&old-prog<1.5)prog=old;st.prog.set(key,prog);
-  const i=Math.min(Math.floor(prog),n-1),f=Math.min(1,prog-i),A=ll(pl[i]),B=ll(pl[i+1]);
-  return{p:[A[0]+(B[0]-A[0])*f,A[1]+(B[1]-A[1])*f],prog,b,n,pl,waitMin,done:tA(n)!=null&&t>=tA(n)+60};
+  const i=Math.min(Math.floor(prog),n-1),f=Math.min(1,prog-i),A=ll(pl[i]),B=ll(pl[i+1]),g=geoFor(r);
+  const p=g&&g.ds.length===pl.length?along(g.s,g.ds[i]+(g.ds[i+1]-g.ds[i])*f):[A[0]+(B[0]-A[0])*f,A[1]+(B[1]-A[1])*f];
+  return{p,prog,b,n,pl,waitMin,done:tA(n)!=null&&t>=tA(n)+60};
 }
 
 function render(){
@@ -750,7 +805,7 @@ if(window.L){
 }
 function addTiles(){
   if(!map||tiles)return;
-  tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende · Daten: transport.opendata.ch'}).addTo(map);
+  tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende · Daten: transport.opendata.ch · Wege: OSM/FOSSGIS'}).addTo(map);
 }
 const label=(p,txt)=>L.marker(p,{interactive:false,keyboard:false,icon:L.divIcon({className:'',iconSize:[0,0],html:`<div class="slab">${esc(txt)}</div>`})}).addTo(layer);
 function drawMap(a){
@@ -762,17 +817,18 @@ function drawMap(a){
   const pts=[];let nAppr=0;
   for(const it of items){
     const{pl,b}=listFor(it.r);const P=pl.map(ll);if(P.length<2)continue;
-    const pre=P.slice(0,b+1),own=P.slice(b);
+    const g=geoFor(it.r),G=g&&g.ds.length===P.length;
+    const pre=G?(b>0?slice(g.s,g.ds[0],g.ds[b]):[]):P.slice(0,b+1),own=G?slice(g.s,g.ds[b],g.ds[P.length-1]):P.slice(b);
     if(!it.ghost){pts.push(...own);if(b>0)nAppr++}
     if(pre.length>1)L.polyline(pre,{color:it.col,weight:3,opacity:.35,dashArray:'2 7',lineCap:'round',interactive:false}).addTo(layer);
     L.polyline(own,{color:it.col,weight:it.ghost?2:4,opacity:.45,dashArray:it.ghost?'3 6':null,lineCap:'round',interactive:false}).addTo(layer);
-    if(!it.ghost)own.forEach((p,j)=>L.circleMarker(p,{radius:j===0||j===own.length-1?4:2.5,color:dark()?'#5d6561':'#b4bbb7',weight:1.5,fillColor:'#fff',fillOpacity:1,interactive:false}).addTo(layer));
+    if(!it.ghost)P.slice(b).forEach((p,j,arr)=>L.circleMarker(p,{radius:j===0||j===arr.length-1?4:2.5,color:dark()?'#5d6561':'#b4bbb7',weight:1.5,fillColor:'#fff',fillOpacity:1,interactive:false}).addTo(layer));
     const P0=pos(it.r);
     const m=L.marker(P0&&P0.p||own[0],{interactive:false,keyboard:false,icon:L.divIcon({className:'vwrap',iconSize:[0,0],html:`<div class="veh${it.ghost?' ghost':''}">${LN(it.r)}<i></i></div>`})}).addTo(vehLayer);
     st.veh.push({r:it.r,m,ghost:it.ghost,lastP:null,label:it.r.journey.number||it.r.journey.name||'?'});
     if(!it.ghost&&P0&&P0.prog<b)pts.push(P0.p);
   }
-  for(const w of a.walks){const p1=ll(w.departure),p2=ll(w.arrival);if(p1&&p2){L.polyline([p1,p2],{color:dark()?'#9aa19d':'#69726d',weight:3,opacity:.8,dashArray:'1 7',lineCap:'round',interactive:false}).addTo(layer);pts.push(p1,p2)}}
+  for(const w of a.walks){const p1=ll(w.departure),p2=ll(w.arrival);if(p1&&p2){L.polyline(walkLine(p1,p2)||[p1,p2],{color:dark()?'#9aa19d':'#69726d',weight:3,opacity:.8,dashArray:'1 7',lineCap:'round',interactive:false}).addTo(layer);pts.push(p1,p2)}}
   if(a.walks.length&&a.walks[0]===(st.conns[selIndex()].sections||[])[0]&&ll(a.walks[0].departure))label(ll(a.walks[0].departure),short(stn(a.walks[0].departure).name));
   const first=a.rides[0],lastR=a.rides[a.rides.length-1];
   if(first&&ll(first.departure))label(ll(first.departure),short(stn(first.departure).name));
@@ -923,6 +979,8 @@ setView(LS.get('lg-view','plan'));
 setInterval(tick,1000);
 setInterval(()=>{if(!document.hidden&&st.conns.length&&!st.demo)load(false)},30000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&st.conns.length&&!st.demo&&now()-st.updated>20)load(false)});
+loadShapes();
+window.__lg={st,geoFor,pos,along};
 const last=[...hist].sort((a,b)=>b.ts-a.ts)[0];
 if(last){F.value=last.f;To.value=last.t;st.from=last.f;st.to=last.t;load(true)}
 else{renderChips();setStatus('')}
