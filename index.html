@@ -300,22 +300,39 @@ async function loadApproaches(){
 async function loadApproach(r){
   const d=dep(r.departure),dp=r.departure&&r.departure.departureTimestamp;if(!d||!dp)return;
   if(d<now()-60||d-now()>50*60)return;
-  const j=r.journey,okey=j.category+j.number+'>'+j.to;
-  let origin=st.orig.get(okey);
-  if(origin===undefined){
-    origin=null;
-    try{const sb=await getJSON(API+'stationboard?'+new URLSearchParams({station:j.to,limit:'20'}));
-      const m=(sb.stationboard||[]).find(e=>String(e.number)===String(j.number)&&e.category===j.category);origin=m?m.to:null}catch(e){}
-    st.orig.set(okey,origin);
+  const j=r.journey,bName=stn(r.departure).name,bId=String(stn(r.departure).id||'');
+  const same=e=>String(e.number)===String(j.number)&&e.category===j.category;
+  const hasB=pl=>(pl||[]).findIndex(p=>String(stn(p).id)===bId);
+  /* 1) Startpunkt: an der Zielhaltestelle das Fahrzeug derselben Linie suchen, das in Gegenrichtung DURCH deine Haltestelle fährt */
+  const okey=j.category+j.number+'>'+j.to+'@'+bId;
+  let o=st.orig.get(okey);
+  if(o===undefined){
+    o=null;
+    try{
+      const f=['number','category','to','passList/station/id','passList/departureTimestamp','passList/arrivalTimestamp'].map(x=>'&fields[]=stationboard/'+x).join('');
+      const sb=await getJSON(API+'stationboard?'+new URLSearchParams({station:j.to,limit:'30'})+f);
+      const m=(sb.stationboard||[]).find(e=>same(e)&&hasB(e.passList)>=0);
+      if(m){const pl=m.passList,i=hasB(pl),last=pl[pl.length-1];
+        const travel=(last.arrivalTimestamp&&pl[i].departureTimestamp)?last.arrivalTimestamp-pl[i].departureTimestamp:30*60;
+        o={origin:m.to,travel:Math.max(0,travel)}}
+    }catch(e){}
+    st.orig.set(okey,o);
   }
-  const bName=stn(r.departure).name,bId=stn(r.departure).id;
-  if(!origin||origin===bName)return;
-  const q=new URLSearchParams({from:origin,to:bId||bName,limit:'6',isArrivalTime:'1',date:ymd(new Date(dp*1000)),time:hhmm(new Date((dp+120)*1000))});
+  if(!o||!o.origin||o.origin===bName)return;
+  /* 2) Abfahrtstafel am Startpunkt: dieselbe Fahrt (gleicher Name) mit allen Haltestellen + Prognosen */
+  const t0=new Date((dp-o.travel-12*60)*1000);
+  try{
+    const sb=await getJSON(API+'stationboard?'+new URLSearchParams({station:o.origin,limit:'25',datetime:ymd(t0)+' '+hhmm(t0)})+'&fields[]=stationboard/name&fields[]=stationboard/number&fields[]=stationboard/category&fields[]=stationboard/passList');
+    const m=(sb.stationboard||[]).find(e=>same(e)&&e.name===j.name);
+    if(m){const i=hasB(m.passList);if(i>0){st.appr.set(vkey(r),m.passList.slice(0,i+1));return}}
+  }catch(e){}
+  /* 3) Rückfall: Verbindungssuche Startpunkt → deine Haltestelle mit Ankunftszeit */
+  const q=new URLSearchParams({from:o.origin,to:bId||bName,limit:'8',isArrivalTime:'1',date:ymd(new Date(dp*1000)),time:hhmm(new Date((dp+120)*1000))});
   const res=await getJSON(API+'connections?'+q);
   for(const k of res.connections||[])for(const s of k.sections||[]){
     if(s.journey&&s.journey.name===j.name&&String(s.journey.number)===String(j.number)){
-      const pl=s.journey.passList||[],last=pl[pl.length-1];
-      if(pl.length>1&&(stn(last).id===bId||stn(last).name===bName)){st.appr.set(vkey(r),pl);return}
+      const pl=s.journey.passList||[],i=hasB(pl);
+      if(i>0){st.appr.set(vkey(r),pl.slice(0,i+1));return}
     }
   }
 }
