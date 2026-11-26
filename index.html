@@ -19,7 +19,7 @@ html,body{height:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,system-ui,sans-serif;overflow-x:clip;display:flex;flex-direction:column}
 .num,.time,.chip,h1{font-family:"Barlow Semi Condensed",Inter,sans-serif}
 header{background:var(--card);border-bottom:1px solid var(--line);padding:14px max(4vw,14px)}
-h1{margin:0;font-size:28px;line-height:1.05;font-weight:700}
+h1{margin:0;font-size:26px;line-height:1.05;font-weight:700}
 h1 span{font-weight:500;font-size:16px;color:var(--muted);margin-left:8px}
 form{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:8px;margin-top:12px;max-width:760px}
 .fields{display:grid;gap:6px}
@@ -30,7 +30,7 @@ button{font:600 15px Inter,sans-serif;border:0;border-radius:8px;min-height:44px
 .actions{grid-column:1/-1;display:flex;gap:8px}.actions button{flex:1 1 0;padding:0 10px}
 .go{background:var(--ink);color:var(--card);padding:0 18px}
 .ghostbtn{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1px var(--line);padding:0 14px}
-.status{font-size:13px;color:var(--muted);padding:8px max(4vw,14px);border-bottom:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between}
+.top{display:flex;align-items:baseline;gap:10px}.status{margin-left:auto;font-size:13px;color:var(--muted);white-space:nowrap}
 .status b{color:var(--ink);font-weight:600}
 .demo{background:var(--soft);color:var(--muted);padding:8px max(4vw,14px);font-size:14px;display:none;border-bottom:1px solid var(--line)}
 .demo.on{display:block}
@@ -83,13 +83,12 @@ article.sel{border-color:var(--acc);box-shadow:inset 4px 0 0 var(--acc)}
 @media(prefers-color-scheme:dark){:root:not([data-theme=light]) .leaflet-tile-pane{filter:grayscale(1) invert(1) brightness(.85) contrast(.8)}}
 .vwrap{transition:transform 1s linear}
 .leaflet-zoom-anim .vwrap{transition:none}
-.veh{position:absolute;width:22px;height:22px;left:-11px;top:-11px;border-radius:50%;background:var(--c);display:grid;place-items:center;
-  box-shadow:0 0 0 2px light-dark(#fff,#181c1a),0 0 12px 3px color-mix(in srgb,var(--c) 50%,transparent)}
-.veh svg{width:13px;height:13px;fill:#fff}
-.veh b{position:absolute;left:27px;top:50%;transform:translateY(-50%);font:700 13px "Barlow Semi Condensed",sans-serif;color:var(--ink);white-space:nowrap;text-shadow:0 0 3px var(--card),0 0 3px var(--card),0 0 3px var(--card)}
-.veh.wait{opacity:.5}
-.veh.ghost{width:16px;height:16px;left:-8px;top:-8px;box-shadow:0 0 0 2px light-dark(#fff,#181c1a)}
-.veh.ghost svg{width:10px;height:10px}.veh.ghost b{left:21px;font-weight:600;color:var(--muted)}
+.veh{position:absolute;left:0;top:0;transform:translate(-50%,-50%);display:flex;align-items:center;gap:5px;white-space:nowrap}
+.veh .ln{box-shadow:0 0 0 2px light-dark(#fff,#181c1a),0 0 14px 4px color-mix(in srgb,var(--acc) 55%,transparent)}
+.veh i{font:700 13px "Barlow Semi Condensed",sans-serif;font-style:normal;color:var(--ink);text-shadow:0 0 3px var(--card),0 0 3px var(--card),0 0 3px var(--card);position:absolute;left:100%;margin-left:5px}
+.veh.wait .ln{opacity:.5}
+.veh.ghost .ln{background:var(--pb);min-width:24px;height:20px;font-size:13px;box-shadow:0 0 0 2px light-dark(#fff,#181c1a)}
+.veh.ghost i{color:var(--muted);font-weight:600}
 .slab{position:absolute;transform:translate(-50%,9px);font-weight:500!important;color:var(--muted)!important;font:600 12px Inter,sans-serif;color:light-dark(#0f1a13,#e6eee8);white-space:nowrap;text-shadow:0 0 3px light-dark(#fff,#000),0 0 3px light-dark(#fff,#000)}
 @media(prefers-reduced-motion:reduce){.vwrap{transition:none}}
 [hidden]{display:none!important}
@@ -105,43 +104,88 @@ article.sel{border-color:var(--acc);box-shadow:inset 4px 0 0 var(--acc)}
 .xbig small{display:block;font-size:13px;color:var(--muted)}
 .sum{width:100%;margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--soft);border:1px solid var(--line);color:var(--ink);padding:0 12px;text-align:left;font-weight:600}
 .sum .edit{color:var(--muted);font-weight:500;font-size:14px;flex:none}
-main{flex:1;display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"focus" "map" "list";align-content:start}
-#focus{grid-area:focus;padding:12px max(4vw,14px) 12px}
-#focus:empty{display:none}
-#map{grid-area:map;height:36vh;min-height:240px}
-#list{grid-area:list}
-@media(min-width:900px){body{height:100vh}main{grid-template-columns:minmax(0,470px) minmax(0,1fr);grid-template-areas:"focus map" "list map";grid-template-rows:auto minmax(0,1fr);min-height:0;align-content:stretch}#map{height:auto}#list{overflow:auto;max-height:none}}
-h2{font-size:14px;font-weight:600;color:var(--muted);margin:2px 0 0}
-.fcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
-.fhead{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
-.leg{margin-top:16px}
-.lh{display:flex;align-items:center;gap:8px;font-size:14px}
-.lh .ico{width:24px;height:24px;border-radius:50%;background:var(--acc);display:grid;place-items:center;flex:none}
-.lh .ico svg{width:14px;height:14px;fill:#fff}
-.lh .dir{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lh{flex-wrap:wrap}.lh .ls{order:5;flex-basis:100%;margin:2px 0 0 32px;font-weight:600;font-size:15px}
-.track{position:relative;height:30px;margin:8px 12px 0}
+/* Layout: Telefon = Antwort, Karte, Schritte, Liste; breit = links Spalte, rechts Karte */
+main{flex:1;display:flex;flex-direction:column}
+#side{display:contents}
+#hero{order:1;padding:12px max(4vw,14px) 0}
+#map{order:2;height:44vh;min-height:260px;margin-top:12px;border-block:1px solid var(--line)}
+#focus{order:3;padding:12px max(4vw,14px) 4px}
+#list{order:4}
+#hero:empty,#focus:empty{display:none}
+@media(min-width:900px){
+  body{height:100vh}
+  main{display:grid;grid-template-columns:minmax(0,480px) minmax(0,1fr);min-height:0}
+  #side{display:block;overflow:auto;border-right:1px solid var(--line)}
+  #map{height:auto;margin:0;border:0}
+}
+h2{font-size:13px;font-weight:600;color:var(--muted);margin:4px 0 0;text-transform:none}
+/* Antwort-Kopf */
+.hero{--lc:var(--muted);--lt:var(--ink);border-radius:16px;padding:14px 16px 12px;background:color-mix(in srgb,var(--lc) 13%,var(--card));border:1px solid color-mix(in srgb,var(--lc) 45%,transparent)}
+.hero.ok{--lc:var(--ok);--lt:light-dark(#137a40,#4fd08a)}
+.hero.warn{--lc:var(--warn);--lt:light-dark(#8a6200,#ffc94d)}
+.hero.bad{--lc:var(--bad);--lt:light-dark(#b0271d,#ff7a6e)}
+.hero.direct{--lc:var(--acc);--lt:var(--ink)}
+.verdict{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.verdict b{font:700 34px/1 "Barlow Semi Condensed",sans-serif;color:var(--lt)}
+.verdict span{font-size:15px;font-weight:600}
+.why{font-size:14px;color:var(--muted);margin-top:4px}
+.why strong{color:var(--ink);font-weight:600}
+.alt{margin-top:10px;padding:9px 11px;border-radius:10px;background:var(--card);font-size:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.alt b{font:700 18px "Barlow Semi Condensed",sans-serif}
+.go2{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-top:12px;padding-top:10px;border-top:1px solid color-mix(in srgb,var(--lc) 30%,transparent)}
+.go2 .cd{font:700 26px/1 "Barlow Semi Condensed",sans-serif}
+.go2 .cd small{display:block;font:500 13px Inter,sans-serif;color:var(--muted);margin-top:3px}
+.go2 .arrv{text-align:right;font-size:13px;color:var(--muted)}
+.go2 .arrv b{display:block;font:700 22px/1.1 "Barlow Semi Condensed",sans-serif;color:var(--ink)}
+/* Linien-Marke: dieselbe auf Karte, Band und Schritten */
+.ln{display:inline-grid;place-items:center;min-width:30px;height:26px;padding:0 7px;border-radius:7px;background:var(--acc);color:#fff;font:700 16px/1 "Barlow Semi Condensed",sans-serif;white-space:nowrap}
+.ln.bus{border-radius:13px}
+/* Schritte */
+.steps{list-style:none;margin:0;padding:0}
+.step{position:relative;padding:12px 0 12px 40px}
+.step::before{content:"";position:absolute;left:14px;top:0;bottom:0;width:2px;background:var(--line)}
+.step:first-child::before{top:22px}.step:last-child::before{bottom:calc(100% - 22px)}
+.step .mk{position:absolute;left:3px;top:10px;width:24px;height:24px;border-radius:50%;background:var(--card);border:2px solid var(--line);display:grid;place-items:center}
+.step .mk svg{width:14px;height:14px;fill:var(--muted)}
+.step.ride .mk{background:var(--acc);border-color:var(--acc)}
+.step.ride .mk svg{fill:#fff}
+.step.end .mk{border:4px solid var(--ink)}
+.s1{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px}
+.s1 .dir{color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1 1 0}
+.s1 .tm{margin-left:auto;font:700 18px "Barlow Semi Condensed",sans-serif;white-space:nowrap}
+.now{margin-top:6px;font-size:15px;font-weight:600}
+.now em{font-style:normal;color:var(--muted);font-weight:500}
+.track{position:relative;height:30px;margin:8px 16px 0 14px}
 .rail{position:absolute;left:0;right:0;top:14px;height:2px;background:var(--line)}
-.rail.ride{height:4px;top:13px;background:color-mix(in srgb,var(--acc) 50%,transparent);border-radius:2px}
+.rail.ride{height:4px;top:13px;background:color-mix(in srgb,var(--acc) 55%,transparent);border-radius:2px}
 .tick{position:absolute;top:10px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:var(--card);border:2px solid color-mix(in srgb,var(--acc) 70%,transparent)}
 .tick.pre{width:6px;height:6px;margin-left:-3px;top:12px;border:0;background:color-mix(in srgb,var(--muted) 45%,transparent)}
 .tick.key{width:14px;height:14px;margin-left:-7px;top:8px;border:3px solid var(--ink)}
-.track .dot{position:absolute;top:3px;width:24px;height:24px;margin-left:-12px;border-radius:50%;background:var(--acc);display:grid;place-items:center;z-index:1;transition:left 1s linear;
-  box-shadow:0 0 0 2px var(--card),0 0 12px 3px color-mix(in srgb,var(--acc) 50%,transparent)}
-.track .dot svg{width:14px;height:14px;fill:#fff}
+.track .dot{position:absolute;top:2px;margin-left:-15px;z-index:1;transition:left 1s linear;box-shadow:0 0 0 2px var(--card),0 0 12px 3px color-mix(in srgb,var(--acc) 50%,transparent)}
 .track .dot.unk{opacity:.45}
 .ends{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--muted);margin-top:2px}
 .ends span:last-child{text-align:right}
 .ends b{color:var(--ink);font-weight:600;white-space:nowrap}
-.xbig{display:flex;align-items:center;gap:10px;margin-top:16px;padding:10px 12px;border-radius:10px;font-size:15px;background:var(--soft);border-left:5px solid var(--line)}
-.xbig b{margin-left:auto;white-space:nowrap;font:700 19px "Barlow Semi Condensed",sans-serif}
-.xbig.ok{border-color:var(--ok)}.xbig.warn{border-color:var(--warn)}.xbig.bad{border-color:var(--bad)}.xbig.bad b{color:var(--bad)}
+.xstep .mk{border-color:var(--lc,var(--line))}
+.xbox{--lc:var(--line);display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;font-size:15px;background:color-mix(in srgb,var(--lc) 12%,var(--card));border:1px solid color-mix(in srgb,var(--lc) 50%,transparent)}
+.xbox.ok{--lc:var(--ok)}.xbox.warn{--lc:var(--warn)}.xbox.bad{--lc:var(--bad)}
+.xbox b{margin-left:auto;white-space:nowrap;font:700 19px "Barlow Semi Condensed",sans-serif}
+.xbox.bad b{color:var(--bad)}
+.xbox small{display:block;font-size:13px;color:var(--muted)}
+details.planb{margin:4px 0 8px;border:1px solid var(--line);border-radius:12px;background:var(--card);padding:0 12px}
+details.planb summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600;font-size:14px;list-style:none}
+details.planb summary::after{content:"›";margin-left:auto;font-size:20px;color:var(--muted);transition:transform .2s}
+details.planb[open] summary::after{transform:rotate(90deg)}
+details.planb ul{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:6px}
+details.planb li{display:flex;gap:8px;align-items:center;font-size:14px}
+details.planb .ln{background:var(--pb)}
+.foot{font-size:12px;color:var(--muted);margin:6px 0 0}
 @media(prefers-reduced-motion:reduce){.track .dot{transition:none}}
 </style>
 </head>
 <body>
 <header>
-  <h1>Reicht's?<span>Basel · Tram &amp; Bus live</span></h1>
+  <div class="top"><h1>Reicht's?<span>Basel</span></h1><span class="status" id="st">Bereit</span></div>
   <button type="button" id="sum" class="sum" hidden><span id="sumt"></span><span class="edit">Ändern</span></button>
   <form id="f">
     <div class="fields">
@@ -158,11 +202,13 @@ h2{font-size:14px;font-weight:600;color:var(--muted);margin:2px 0 0}
   </form>
 </header>
 <div class="demo" id="demo">Demo-Daten – Fahrplan-API hier nicht erreichbar (in der Claude-Vorschau normal).</div>
-<div class="status"><span id="st">Bereit</span><span>Positionen aus Fahrplan + Prognose</span></div>
 <main>
-  <section id="focus" aria-live="polite"></section>
+  <div id="side">
+    <section id="hero" aria-live="polite"></section>
+    <section id="focus"></section>
+    <section id="list"><p class="empty">Von und Nach eingeben, dann «Ab jetzt suchen».</p></section>
+  </div>
   <div id="map" aria-label="Karte mit den Fahrzeugen der gewählten Verbindung"></div>
-  <section id="list"><p class="empty">Von und Nach eingeben, dann «Ab jetzt suchen».</p></section>
 </main>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
@@ -361,8 +407,11 @@ function pos(r){
 function render(){
   const A=st.conns.map(analyse),si=selIndex();
   const best=A[0]&&A[0].level==='bad'?A.findIndex(a=>a.level!=='bad'):-1;
-  $('#list').innerHTML=st.conns.length?(st.walkFallback?`<p class="note">Keine Verbindung mit höchstens ${st.maxWalk} Min. Fussweg gefunden – zeige alle.</p>`:'')+'<h2>Verbindungen · antippen zum Anzeigen</h2>'+st.conns.map((c,i)=>card(c,A[i],i===si,i===best)).join('')
+  $('#list').innerHTML=st.conns.length?(st.walkFallback?`<p class="note">Keine Verbindung mit höchstens ${st.maxWalk} Min. Fussweg gefunden – zeige alle.</p>`:'')
+    +'<h2>Alle Verbindungen · antippen zum Anzeigen</h2>'+st.conns.map((c,i)=>card(c,A[i],i===si,i===best)).join('')
+    +'<p class="foot">Fahrzeugpositionen berechnet aus Fahrplan und Echtzeit-Prognose (kein GPS). Daten: transport.opendata.ch</p>'
     :'<p class="empty">Keine Verbindung gefunden. Haltestellennamen prüfen (z.B. «Basel, Barfüsserplatz»).</p>';
+  st.cur={c:st.conns[si],a:A[si]};st.heroSig='';
   renderFocus(st.conns[si],A[si]);
   drawMap(A[si]);
 }
@@ -371,6 +420,8 @@ function head(c,a){
   const late=d0p&&d0-d0p>=60?`<span class="late">+${Math.round((d0-d0p)/60)}</span>`:'';
   return `<span class="time">${hm(d0)}</span>${late}<span class="arrt">→ ${hm(a1)}</span>`;
 }
+const isBus=r=>/^(B|NFB|BUS|KB)$/i.test(r.journey.category||'');
+const LN=(r,cls='')=>`<span class="ln${isBus(r)?' bus':''}${cls?' '+cls:''}" title="${isBus(r)?'Bus':'Tram'} ${esc(r.journey.number||'')}">${esc(r.journey.number||r.journey.category||'?')}</span>`;
 function card(c,a,sel,best){
   const chips=(c.sections||[]).map(s=>s.journey?`<span class="chip" title="Richtung ${esc(s.journey.to)}">${esc(s.journey.category)} ${esc(s.journey.number||'')}</span>`
     :`<span class="wchip">${WALK}${mins(walkSec(s))}'</span>`).join('<span>›</span>');
@@ -379,48 +430,85 @@ function card(c,a,sel,best){
   <div class="r1">${head(c,a)}${best?'<span class="tag">Empfohlen</span>':''}<span class="pill ${a.level}">${LV[a.level]}</span></div>
   <div class="legs">${chips}<span>ab ${esc(short(stn(c.from).name))}</span></div>${xf}</article>`;
 }
-const xbig=(t,b)=>`<div class="xbig ${lvl(b)}"><span>${t}</span><b>${bufTxt(b)}</b></div>`;
+
+/* ---------- Antwort-Kopf: Reicht's? + wann los ---------- */
+function renderHero(){
+  const H=$('#hero'),c=st.cur&&st.cur.c,a=st.cur&&st.cur.a;
+  if(!c||!a){H.innerHTML='';return}
+  const t=now(),first=(c.sections||[])[0],r0=a.rides[0];
+  const xs=a.xfers.filter(x=>x.buf!=null),crit=xs.length?xs.reduce((m,x)=>x.buf<m.buf?x:m):null;
+  let word,why='';
+  if(a.level==='direct'){word='Direkt';why=a.walks.length?'Keine Umstiege':'Ohne Umsteigen ans Ziel'}
+  else{
+    word=LV[a.level];
+    if(a.reach&&(!crit||a.reach.buf<=crit.buf))why=`<strong>${bufTxt(a.reach.buf)}</strong> zu Fuss zur ersten Haltestelle`;
+    else if(crit)why=`<strong>${bufTxt(crit.buf)}</strong> beim Umstieg ${esc(short(crit.at))}`;
+  }
+  let alt='';
+  if((a.level==='bad'||a.level==='warn')&&st.planB&&st.planB.list.length){
+    const o=st.planB.list[0];
+    alt=`<div class="alt">${a.level==='bad'?'Nimm stattdessen':'Falls verpasst'}: ${LN(o.r)} <b>${hm(dep(o.r.departure))}</b> ab ${esc(short(st.planB.x.at))} · an ${hm(arr(o.k.to))}</div>`;
+  }
+  const leave=a.reach&&r0?dep(r0.departure)-a.reach.m/1.25:(first?dep(first.departure):null);
+  const boarded=r0&&dep(r0.departure)!=null&&t>dep(r0.departure)+30;
+  let cd;
+  if(boarded){const cr=a.rides.find(r=>arr(r.arrival)!=null&&t<arr(r.arrival))||a.rides[a.rides.length-1];
+    cd=`Unterwegs<small>aussteigen: ${esc(short(stn(cr.arrival).name))} um ${hm(arr(cr.arrival))}</small>`}
+  else if(leave==null)cd='–';
+  else{const m=Math.floor((leave-t)/60);
+    cd=m<=0?`Jetzt los!<small>${first&&!first.journey?'zu Fuss zur '+esc(short(stn(first.arrival).name)):(r0?'Abfahrt '+hm(dep(r0.departure))+' ab '+esc(short(stn(r0.departure).name)):'')}</small>`
+      :`Los in ${m} Min.<small>${first&&!first.journey?'zu Fuss zur '+esc(short(stn(first.arrival).name)):(r0?'Abfahrt '+hm(dep(r0.departure))+' ab '+esc(short(stn(r0.departure).name)):'')}</small>`}
+  const html=`<div class="hero ${a.level}"><div class="verdict"><b>${word}</b><span>${esc(short(stn(c.from).name))} → ${esc(short(stn(c.to).name))}</span></div>
+    ${why?`<div class="why">${why}</div>`:''}${alt}
+    <div class="go2"><div class="cd">${cd}</div><div class="arrv">Ankunft<b>${hm(arr(c.to))}</b></div></div></div>`;
+  if(html!==st.heroSig){H.innerHTML=html;st.heroSig=html}
+}
+
+/* ---------- Schritte ---------- */
+const MK_WALK=`<span class="mk">${WALK}</span>`;
 function renderFocus(c,a){
   const F=$('#focus');st.band=[];
   if(!c||!a){F.innerHTML='';return}
-  let h=`<div class="fcard"><div class="fhead">${head(c,a)}<span class="pill ${a.level}">${LV[a.level]}</span></div>`;
-  if(a.reach)h+=xbig(`Zu Fuss zur Haltestelle (${Math.round(a.reach.m)} m)`,a.reach.buf);
-  let k=-1;
+  let h='<h2>Deine Fahrt</h2><ol class="steps">',k=-1;
   (c.sections||[]).forEach(s=>{
     if(!s.journey){
       const m=mins(walkSec(s)),to=esc(short(stn(s.arrival).name));
-      if(k<0)h+=`<div class="walk"><span class="wi">${WALK}</span><span>${m} Min. zu Fuss zur Haltestelle <b>${to}</b></span><b class="wt">los ${hm(dep(s.departure))}</b></div>`;
-      else if(k===a.rides.length-1)h+=`<div class="walk"><span class="wi">${WALK}</span><span>${m} Min. zu Fuss bis <b>${to}</b></span><b class="wt">an ${hm(arr(s.arrival))}</b></div>`;
+      if(k<0)h+=`<li class="step">${MK_WALK}<div class="s1"><span>${m} Min. zu Fuss zur <b>${to}</b></span><span class="tm">${hm(dep(s.departure))}</span></div></li>`;
+      else if(k===a.rides.length-1)h+=`<li class="step">${MK_WALK}<div class="s1"><span>${m} Min. zu Fuss bis <b>${to}</b></span></div></li>`;
       return;
     }
     k++;const r=s;
-    h+=`<div class="leg" data-i="${k}"><div class="lh"><span class="ico">${icon(r)}</span><span class="chip">${esc(r.journey.category)} ${esc(r.journey.number||'')}</span><span class="dir">${esc(short(r.journey.to))}</span><b class="ls"></b></div>
-    <div class="track"></div>
-    <div class="ends"><span>ab ${esc(short(stn(r.departure).name))} <b>${hm(dep(r.departure))}</b></span><span>an ${esc(short(stn(r.arrival).name))} <b>${hm(arr(r.arrival))}</b></span></div></div>`;
+    h+=`<li class="step ride" data-i="${k}"><span class="mk">${icon(r)}</span>
+      <div class="s1">${LN(r)}<span class="dir">Richtung ${esc(short(r.journey.to))}</span><span class="tm">${hm(dep(r.departure))}</span></div>
+      <div class="now"></div><div class="track"></div>
+      <div class="ends"><span>ein: <b>${esc(short(stn(r.departure).name))}</b></span><span>aus: <b>${esc(short(stn(r.arrival).name))}</b> ${hm(arr(r.arrival))}</span></div></li>`;
     const x=a.xfers[k];
-    if(x)h+=xbig(x.walk&&x.fromAt!==x.at?`Umstieg ${esc(short(x.fromAt))} → ${esc(short(x.at))}<small>${mins(x.walk)} Min. zu Fuss</small>`:`Umstieg ${esc(short(x.at))}`,x.buf);
+    if(x)h+=`<li class="step xstep" style="--lc:${LC[lvl(x.buf)]}"><span class="mk"></span><div class="xbox ${lvl(x.buf)}"><span>${x.walk&&x.fromAt!==x.at?`Umsteigen ${esc(short(x.fromAt))} → ${esc(short(x.at))}<small>${mins(x.walk)} Min. zu Fuss</small>`:`Umsteigen ${esc(short(x.at))}`}</span><b>${bufTxt(x.buf)}</b></div></li>`;
   });
+  h+=`<li class="step end"><span class="mk"></span><div class="s1"><span>Ankunft <b>${esc(short(stn(c.to).name))}</b></span><span class="tm">${hm(arr(c.to))}</span></div></li></ol>`;
   if(st.planB&&st.planB.x){
-    const x=st.planB.x;
-    h+=`<div class="planb"><h3>Plan B ab ${esc(short(x.at))} – du bist dort ca. ${hm(x.arr)}</h3>`+(st.planB.list.length?'<ul>'+st.planB.list.map(o=>
-      `<li><span class="num">${hm(dep(o.r.departure))}</span><span class="chip">${esc(o.r.journey.category)} ${esc(o.r.journey.number||'')}</span><span>an ${hm(arr(o.k.to))}</span></li>`).join('')+'</ul>':'<p class="note">Keine erreichbare Alternative gefunden.</p>')+'</div>';
+    const x=st.planB.x,open=a.level==='bad'||a.level==='warn';
+    h+=`<details class="planb"${open?' open':''}><summary>Plan B ab ${esc(short(x.at))} (${st.planB.list.length})</summary>`+(st.planB.list.length?'<ul>'+st.planB.list.map(o=>
+      `<li><span class="num">${hm(dep(o.r.departure))}</span>${LN(o.r)}<span>→ an ${hm(arr(o.k.to))}</span></li>`).join('')+'</ul>':'<p class="note">Keine erreichbare Alternative gefunden.</p>')+'</details>';
   }
-  F.innerHTML=h+'</div>';
-  F.querySelectorAll('.leg').forEach(el=>{const r=a.rides[+el.dataset.i];st.band.push({r,track:el.querySelector('.track'),ls:el.querySelector('.ls'),sig:'',dot:null})});
+  F.innerHTML=h;
+  F.querySelectorAll('.step.ride').forEach(el=>{const r=a.rides[+el.dataset.i];st.band.push({r,track:el.querySelector('.track'),now:el.querySelector('.now'),sig:'',dot:null})});
   tick();
 }
 const xpos=(i,b,n)=>{const A=b>0?30:0;return b>0&&i<=b?A*i/b:A+(100-A)*(i-b)/Math.max(1,n-b)};
 function drawTrack(o,P){
   const{b,n}=P;let h=`<div class="rail"></div><div class="rail ride" style="left:${xpos(b,b,n)}%"></div>`;
   for(let i=0;i<=n;i++)h+=`<i class="${i===b||i===n?'tick key':i<b?'tick pre':'tick'}" style="left:${xpos(i,b,n)}%"></i>`;
-  o.track.innerHTML=h+`<div class="dot">${icon(o.r)}</div>`;o.dot=o.track.querySelector('.dot');
+  o.track.innerHTML=h+LN(o.r,'dot');o.dot=o.track.querySelector('.dot');
 }
-function legStatus(P){
+function legStatus(P,r){
   const pl=k=>k===1?'1 Halt':k+' Halte';
+  const at=i=>esc(short(stn(P.pl[Math.min(P.n,Math.max(0,i))]).name));
+  const i=Math.floor(P.prog),f=P.prog-i,where=f<0.15?`bei ${at(i)}`:`nach ${at(i)}`;
   if(P.done||P.prog>=P.n)return'angekommen';
-  if(P.prog<P.b)return`noch ${pl(P.b-Math.floor(P.prog))} bis zu dir · ${P.waitMin??0}'`;
-  if(P.waitMin!=null)return P.b>0?`steht an deiner Haltestelle · ${P.waitMin}'`:`fährt in ${P.waitMin}'`;
-  return`unterwegs · noch ${pl(P.n-Math.floor(P.prog))}`;
+  if(P.prog<P.b)return`Jetzt ${where} <em>· noch ${pl(P.b-i)} bis zu dir · ${P.waitMin??0} Min.</em>`;
+  if(P.waitMin!=null)return P.b>0?`Steht an deiner Haltestelle <em>· fährt in ${P.waitMin} Min.</em>`:`Abfahrt in ${P.waitMin} Min. <em>· Position noch unbekannt</em>`;
+  return`Unterwegs, ${where} <em>· noch ${pl(P.n-i)} bis ${esc(short(stn(r.arrival).name))}</em>`;
 }
 
 let map=null,layer,vehLayer,tiles=null;
@@ -439,7 +527,7 @@ function drawMap(a){
   layer.clearLayers();vehLayer.clearLayers();
   if(!a)return;
   const items=a.rides.map(r=>({r,col:ACC(),css:'var(--acc)',ghost:false}));
-  if(st.planB)st.planB.list.forEach(o=>items.push({r:o.r,col:PBC(),css:'var(--pb)',ghost:true}));
+  if(st.planB&&(a.level==='bad'||a.level==='warn'))st.planB.list.slice(0,2).forEach(o=>items.push({r:o.r,col:PBC(),css:'var(--pb)',ghost:true}));
   const pts=[];let nAppr=0;
   for(const it of items){
     const{pl,b}=listFor(it.r);const P=pl.map(ll);if(P.length<2)continue;
@@ -449,7 +537,7 @@ function drawMap(a){
     L.polyline(own,{color:it.col,weight:it.ghost?2:4,opacity:.45,dashArray:it.ghost?'3 6':null,lineCap:'round',interactive:false}).addTo(layer);
     if(!it.ghost)own.forEach((p,j)=>L.circleMarker(p,{radius:j===0||j===own.length-1?4:2.5,color:dark()?'#5d6561':'#b4bbb7',weight:1.5,fillColor:'#fff',fillOpacity:1,interactive:false}).addTo(layer));
     const P0=pos(it.r);
-    const m=L.marker(P0&&P0.p||own[0],{interactive:false,keyboard:false,icon:L.divIcon({className:'vwrap',iconSize:[0,0],html:`<div class="veh${it.ghost?' ghost':''}" style="--c:${it.css}">${icon(it.r)}<b></b></div>`})}).addTo(vehLayer);
+    const m=L.marker(P0&&P0.p||own[0],{interactive:false,keyboard:false,icon:L.divIcon({className:'vwrap',iconSize:[0,0],html:`<div class="veh${it.ghost?' ghost':''}">${LN(it.r)}<i></i></div>`})}).addTo(vehLayer);
     st.veh.push({r:it.r,m,ghost:it.ghost,lastP:null,label:it.r.journey.number||it.r.journey.name||'?'});
     if(!it.ghost&&P0&&P0.prog<b)pts.push(P0.p);
   }
@@ -471,7 +559,7 @@ function tick(){
     const el=v.m.getElement();if(!el)continue;const box=el.firstChild,P=pos(v.r);
     if(!P||P.done){el.style.display='none';continue}
     el.style.display='';v.m.setLatLng(P.p);v.lastP=P.p;
-    const b=box.querySelector('b'),txt=v.label+(P.waitMin!=null?` · ${P.waitMin}'`:'');
+    const b=box.querySelector('i'),txt=P.waitMin!=null?`${P.waitMin}'`:'';
     if(b&&b.textContent!==txt)b.textContent=txt;
     box.classList.toggle('wait',P.b===0&&P.waitMin!=null);
   }
@@ -485,9 +573,10 @@ function tick(){
     const sig=P.n+'|'+P.b;if(o.sig!==sig){drawTrack(o,P);o.sig=sig}
     o.dot.style.left=xpos(P.prog,P.b,P.n)+'%';
     o.dot.classList.toggle('unk',P.b===0&&P.waitMin!=null);
-    const s=legStatus(P);if(o.ls.textContent!==s)o.ls.textContent=s;
+    const s=legStatus(P,o.r);if(o.now.innerHTML!==s)o.now.innerHTML=s;
   }
-  if(st.updated&&!st.busy)setStatus(st.demo?'<b>Demo</b> · Fahrzeuge bewegen sich in Echtzeit':`<b>Live</b> · aktualisiert vor ${Math.round(now()-st.updated)} s`);
+  renderHero();
+  if(st.updated&&!st.busy)setStatus(st.demo?'<b>Demo</b>':`<b>Live</b> · vor ${Math.round(now()-st.updated)} s`);
 }
 function setStatus(h){$('#st').innerHTML=h}
 
