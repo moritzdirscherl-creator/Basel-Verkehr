@@ -33,6 +33,12 @@ form{display:grid;gap:6px;margin-top:10px;max-width:760px}
 .chip2.on{background:var(--ink);color:var(--card);border-color:var(--ink)}
 .chip2.on small{color:inherit;opacity:.7}
 .routes .chip2{background:var(--soft)}
+.manage{display:flex;gap:8px;justify-content:flex-end}
+.manage button{min-height:34px;padding:0 10px;border-radius:8px;background:transparent;color:var(--muted);font-size:13px;text-decoration:underline}
+.manage #clearBtn{color:var(--bad)}
+.chip2 .x{display:none;margin-left:2px;width:20px;height:20px;border-radius:50%;background:var(--bad);color:#fff;font:700 13px/20px Inter,sans-serif;text-align:center}
+form.editing .chip2[data-del] .x{display:inline-block}
+form.editing .chip2[data-del]{border-color:var(--bad)}
 input{width:100%;font:16px Inter,sans-serif;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--soft);color:var(--ink);min-height:44px}
 input:focus-visible,button:focus-visible,article:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 button{font:600 15px Inter,sans-serif;border:0;border-radius:8px;min-height:44px;cursor:pointer}
@@ -267,6 +273,7 @@ details.planb li{flex-wrap:wrap}
     <input id="to" list="stations" placeholder="Ziel-Haltestelle">
     <div class="chips" id="toChips"></div>
     <div class="chips routes" id="routeChips"></div>
+    <div class="manage" id="manage" hidden><button type="button" id="editBtn">Verlauf bearbeiten</button><button type="button" id="clearBtn" hidden>Alle löschen</button></div>
     <div class="actions">
       <button class="go" type="submit">Längt's? – ab jetzt</button>
     </div>
@@ -813,19 +820,27 @@ function remember(f,t){let e=hist.find(x=>x.f===f&&x.t===t);if(!e){e={f,t,n:0,ts
   hist=hist.sort((a,b)=>b.ts-a.ts).slice(0,40);LS.set('lg-hist',hist)}
 const score=e=>e.n+3*Math.exp(-(Date.now()-e.ts)/(7*864e5));
 function topBy(key,excl){const m=new Map();for(const e of hist){const v=e[key];if(v===excl)continue;m.set(v,(m.get(v)||0)+score(e))}return[...m].sort((a,b)=>b[1]-a[1]).map(x=>x[0])}
-const chip=(attrs,html,cls='')=>`<button type="button" class="chip2 ${cls}" ${attrs}>${html}</button>`;
+const chip=(attrs,html,cls='',del='')=>`<button type="button" class="chip2 ${cls}" ${attrs}${del?` data-del="${esc(del)}"`:''}>${html}${del?'<span class="x" aria-label="löschen">×</span>':''}</button>`;
+function forget(kind,v){
+  if(kind==='f')hist=hist.filter(e=>e.f!==v);
+  else if(kind==='t')hist=hist.filter(e=>e.t!==v);
+  else{const[f,t]=v.split('\u2192');hist=hist.filter(e=>!(e.f===f&&e.t===t))}
+  LS.set('lg-hist',hist);renderChips();
+}
 function renderChips(){
   const fv=F.value.trim(),tv=To.value.trim();
   let fc='';
   if(st.near&&st.near.length)fc+=st.near.slice(0,4).map((s,i)=>chip(`data-set="from" data-v="${esc(s.name)}"`,`${i===0?'📍 ':''}${esc(short(s.name))} <small>${s.distance} m</small>`,(i===0?'loc ':'')+(fv===s.name?'on':''))).join('');
   else fc+=chip('data-act="locate"',st.locMsg||'📍 Haltestellen in meiner Nähe','loc');
-  fc+=topBy('f').filter(n=>!(st.near||[]).some(s=>s.name===n)).slice(0,4).map(n=>chip(`data-set="from" data-v="${esc(n)}"`,esc(short(n)),fv===n?'on':'')).join('');
+  fc+=topBy('f').filter(n=>!(st.near||[]).some(s=>s.name===n)).slice(0,4).map(n=>chip(`data-set="from" data-v="${esc(n)}"`,esc(short(n)),fv===n?'on':'','f:'+n)).join('');
   $('#fromChips').innerHTML=fc;
-  $('#toChips').innerHTML=topBy('t',fv).slice(0,6).map(n=>chip(`data-set="to" data-v="${esc(n)}"`,'★ '+esc(short(n)),tv===n?'on':'')).join('');
+  $('#toChips').innerHTML=topBy('t',fv).slice(0,6).map(n=>chip(`data-set="to" data-v="${esc(n)}"`,'★ '+esc(short(n)),tv===n?'on':'','t:'+n)).join('');
   const routes=[...hist].sort((a,b)=>score(b)-score(a)).slice(0,3);
-  let rc=routes.map(e=>chip(`data-f="${esc(e.f)}" data-t="${esc(e.t)}"`,`${esc(short(e.f))} → ${esc(short(e.t))}`)).join('');
+  let rc=routes.map(e=>chip(`data-f="${esc(e.f)}" data-t="${esc(e.t)}"`,`${esc(short(e.f))} → ${esc(short(e.t))}`,'','r:'+e.f+'\u2192'+e.t)).join('');
   if(st.from&&st.to)rc=chip(`data-f="${esc(st.to)}" data-t="${esc(st.from)}"`,'↩ Rückweg')+rc;
   $('#routeChips').innerHTML=rc;
+  $('#manage').hidden=!hist.length;if(!hist.length)$('#f').classList.remove('editing');
+  $('#editBtn').textContent=$('#f').classList.contains('editing')?'Fertig':'Verlauf bearbeiten';$('#clearBtn').hidden=!$('#f').classList.contains('editing');
 }
 function go(){st.from=F.value.trim();st.to=To.value.trim();if(!st.from||!st.to)return;
   if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();
@@ -834,7 +849,10 @@ function compact(on){$('#f').hidden=on;$('#sum').hidden=!on;$('#sumt').textConte
 $('#f').addEventListener('submit',e=>{e.preventDefault();go()});
 $('#sum').addEventListener('click',()=>{compact(false)});
 $('#f').addEventListener('click',e=>{
+  if(e.target.closest('#editBtn')){$('#f').classList.toggle('editing');renderChips();return}
+  if(e.target.closest('#clearBtn')){hist=[];LS.set('lg-hist',hist);try{localStorage.removeItem('rb-from');localStorage.removeItem('rb-to')}catch(_){}$('#f').classList.remove('editing');renderChips();return}
   const b=e.target.closest('.chip2');if(!b)return;
+  if($('#f').classList.contains('editing')){if(b.dataset.del){const d=b.dataset.del,i=d.indexOf(':');forget(d.slice(0,i),d.slice(i+1))}return}
   if(b.dataset.act==='locate'){locate(true);return}
   if(b.dataset.f){F.value=b.dataset.f;To.value=b.dataset.t;go();return}
   if(b.dataset.set==='from'){F.value=b.dataset.v;renderChips();if(To.value.trim())go();else To.focus()}
