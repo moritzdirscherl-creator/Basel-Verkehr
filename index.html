@@ -638,16 +638,16 @@ function renderHero(){
   const G=document.getElementById('gotile'),c=st.cur&&st.cur.c,a=st.cur&&st.cur.a;
   if(!G||!c||!a)return;
   const d=depStatus(c,a),t=now(),first=(c.sections||[])[0],r0=a.rides[0];
-  let cls='ride0',html;
+  let cls='ride0',html,cdv=null,cdlv='';
   if(d&&!d.boarded){
     cls=d.level;
     const cd=d.level==='bad'?(d.gone?'weg':'zu spät'):d.slack<120?mmss(d.slack):Math.floor(d.slack/60)+' Min.';
-    const cdl=d.level==='bad'?'':d.src?(d.slack<120?'bis du los musst':'bis los'):'bis Abfahrt';
+    const cdl=d.level==='bad'?'':d.src?(d.slack<120?'bis du los musst':'bis los'):'bis Abfahrt';cdv=cd;cdlv=cdl;
     const walkFirst=first&&!first.journey;
     const how=walkFirst?`${mins(walkSec(first))} Min. zu Fuss zur <b>${esc(short(stn(first.arrival).name))}</b>`
       :d.src==='gps'?`${mins(d.need)} Min. zu Fuss zur <b>${esc(short(stn(r0.departure).name))}</b>`
       :`ab <b>${esc(short(stn(r0.departure).name))}</b>`;
-    html=`<div class="th"><span class="tic">${walkFirst||d.src==='gps'?WALK:icon(r0)}</span><div class="tb"><div class="ts">Abfahrt</div><div class="tt gw">${DV[d.level]}</div></div><div class="tr">${cd}<small>${cdl}</small></div></div>
+    html=`<div class="th"><span class="tic">${walkFirst||d.src==='gps'?WALK:icon(r0)}</span><div class="tb"><div class="ts">Abfahrt</div><div class="tt gw">${DV[d.level]}</div></div><div class="tr"><span class="cdv"></span><small class="cdl"></small></div></div>
       <div class="gsub">${how} · ${LN(r0)} ${hm(d.tb)}${!st.me&&!walkFirst?' <span class="mu">· ohne Standort</span>':''}</div>`;
     if(d.level==='bad'){const n=nextOk();
       if(n)html+=`<div class="alt">Nächste: ${n.a.rides.map(r=>LN(r)).join(' ')} <b>${hm(n.d.tb)}</b> <span class="mu">${DV[n.d.level]}</span><button type="button" data-k="${esc(ckey(n.c))}">Anzeigen</button></div>`}
@@ -659,6 +659,8 @@ function renderHero(){
   }
   const sig=cls+html;
   if(sig!==st.heroSig){G.className='tile gst '+cls+(G.classList.contains('blink')?' blink':'');G.innerHTML=html;st.heroSig=sig}
+  /* nur die Zahlen aktualisieren, Knöpfe bleiben stehen */
+  if(cdv!=null){const a1=G.querySelector('.cdv'),a2=G.querySelector('.cdl');if(a1&&a1.textContent!==cdv)a1.textContent=cdv;if(a2&&a2.textContent!==cdlv)a2.textContent=cdlv}
   const lv=d&&!d.boarded?d.level:'';
   if(lv==='renn'&&(st.lastDep!=='renn'||st.lastDepKey!==st.selKey)){
     G.classList.remove('blink');void G.offsetWidth;G.classList.add('blink');
@@ -710,7 +712,7 @@ function renderAlts(c,a){
     h+='</div>';
   }
   if(wo.length){
-    h+=`<div class="altsec"><h3>Mit längerem Fussweg<small>über 5 Min. zu Fuss</small></h3>`+wo.map(k=>{const df=Math.round((arr(c.to)-arr(k.to))/60);return`<div class="atile walky"><span class="num">${hm(dep(k.from))}</span><span class="lns">${lnsOf(k)}</span><span class="ar">${df>0?df+' Min. früher':df<0?(-df)+' Min. später':'gleich schnell'}<b>${hm(arr(k.to))}</b></span><button type="button" class="pbgo" data-wk="${esc(ckey(k))}">Anzeigen</button></div>`}).join('')+'</div>';
+    h+=`<div class="altsec" id="walksec"><h3>Mit längerem Fussweg<small>über 5 Min. zu Fuss</small></h3>`+wo.map(k=>{const df=Math.round((arr(c.to)-arr(k.to))/60);return`<div class="atile walky"><span class="num">${hm(dep(k.from))}</span><span class="lns">${lnsOf(k)}</span><span class="ar">${df>0?df+' Min. früher':df<0?(-df)+' Min. später':'gleich schnell'}<b>${hm(arr(k.to))}</b></span><button type="button" class="pbgo" data-wk="${esc(ckey(k))}">Anzeigen</button></div>`}).join('')+'</div>';
   }
   const nx=st.conns.filter(k=>k!==c&&(dep(k.from)??0)>now()-30).slice(0,4);
   if(nx.length)h=`<div class="altsec"><h3>Spätere Verbindungen</h3>`+nx.map(k=>{const ak=analyse(k);return`<div class="atile"><span class="num">${hm(dep(k.from))}</span><span class="lns">${lnsOf(k)}</span><span class="ts">${ak.level==='direct'?(ak.walkTotal?'':'direkt'):'Umstieg: '+LV[ak.level]}</span><span class="ar">Ankunft<b>${hm(arr(k.to))}</b></span><button type="button" class="pbgo" data-sel="${esc(ckey(k))}">Anzeigen</button></div>`}).join('')+'</div>'+h;
@@ -891,7 +893,7 @@ $('#alts').addEventListener('click',e=>{const s=e.target.closest('button[data-se
   if(!st.conns.some(c=>ckey(c)===b.dataset.wk)){st.conns.push(k);st.conns.sort((x,y)=>(dep(x.from)??0)-(dep(y.from)??0))}
   selectKey(b.dataset.wk)});
 $('#list').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick(e.target)}});
-$('#go').addEventListener('click',e=>{const v=e.target.closest('button[data-view]');if(v){setView(v.dataset.view);return}const b=e.target.closest('button[data-k]');if(b)selectKey(b.dataset.k)});
+$('#go').addEventListener('click',e=>{const v=e.target.closest('button[data-view]');if(v){setView(v.dataset.view);setTimeout(()=>{const w=document.getElementById('walksec');if(w)w.scrollIntoView({behavior:'smooth',block:'start'})},50);return}const b=e.target.closest('button[data-k]');if(b)selectKey(b.dataset.k)});
 /* Standort: nächste Haltestellen + Abfahrts-Ampel */
 let watching=false;
 function locate(manual){
