@@ -310,7 +310,9 @@ const LV={ok:'Längt',warn:'Knapp',bad:'Längt nid',direct:'Direkt'};
 const DV={ok:'Längt',renn:'Renn!',bad:'Längt nid'};
 const LC={ok:'#1f9d55',warn:'#e0a100',bad:'#d23b2f',direct:'#69726d'};
 const hav=(a,b)=>{const R=6371e3,r=Math.PI/180,dLa=(b[0]-a[0])*r,dLo=(b[1]-a[1])*r;const h=Math.sin(dLa/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(h))};
-const bufTxt=b=>b==null?'?':b<0?`${Math.ceil(-b/60)} Min. zu spät`:b<60?'unter 1 Min. Puffer':`${Math.floor(b/60)} Min. Puffer`;
+const plat=p=>String(p&&(p.platform||(p.prognosis&&p.prognosis.platform))||'').trim();
+const xferNeed=(a,d)=>{const sa=String(stn(a).id||''),sd=String(stn(d).id||'');if(!sa||sa!==sd)return 180;const pa=plat(a),pd=plat(d);return pa&&pd&&pa!==pd?60:0};
+const bufTxt=b=>b==null?'?':b<0?`${Math.ceil(-b/60)} Min. zu spät`:b<60?'sofort umsteigen':`${Math.floor(b/60)} Min. Puffer`;
 const dark=()=>{const t=document.documentElement.dataset.theme;return t==='dark'||(t!=='light'&&!!(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))};
 const ACC=()=>dark()?'#8ea6c4':'#5b7798',PBC=()=>dark()?'#6f7773':'#9aa19d';
 const ICON={T:'<svg viewBox="0 0 24 24"><path d="M9 0h6v2H9zM7 3h10a2 2 0 0 1 2 2v10a3 3 0 0 1-2 2.8l1.5 2.2H16l-1.3-2H9.3L8 20H5.5L7 17.8A3 3 0 0 1 5 15V5a2 2 0 0 1 2-2zm0 3v5h10V6zm1.5 7.5a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4zm7 0a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4z"/></svg>',
@@ -337,7 +339,7 @@ function analyse(c){
         const pa=last.arrival&&last.arrival.arrivalTimestamp,pd=s.departure&&s.departure.departureTimestamp;
         if(pa&&pd&&pd+60<pa)valid=false;
         const same=stn(last.arrival).id&&stn(last.arrival).id===stn(s.departure).id;
-        const need=walk||(same?60:180);
+        const need=walk||xferNeed(last.arrival,s.departure);
         xfers.push({at:stn(s.departure).name||'',atId:stn(s.departure).id,fromAt:stn(last.arrival).name||'',walk,from:last,to:s,arr:a,dep:d,need,buf:a!=null&&d!=null?d-a-need:null});
       }
       rides.push(s);last=s;walk=0;
@@ -406,7 +408,7 @@ async function rebuild(c,t0){
   for(const s of c.sections||[]){
     const A=String(stn(s.departure).id||''),B=String(stn(s.arrival).id||'');
     if(!s.journey&&(A===B||!A||!B))continue;
-    const xf=out.length?60:0;
+    const xf=out.length?xferNeed(out[out.length-1].arrival,s.departure):0;
     if(s.journey&&dep(s.departure)!=null&&dep(s.departure)>=t+xf){out.push(s);t=arr(s.arrival)??t;continue}
     const [hp]=await hops(A,B,t+xf);
     if(!hp){if(s.journey)return null;out.push(s);t+=walkSec(s);continue}
@@ -477,7 +479,7 @@ async function loadPlanB(){
     const a=analyse(k);if(!a.valid||!a.rides.length)continue;
     const r=a.rides[0],first=(k.sections||[])[0];
     if(a.walkTotal===0&&first&&first.journey){
-      const same=stn(r.departure).id===x.atId,buf=dep(r.departure)-x.arr-(same?60:180);
+      const buf=dep(r.departure)-x.arr-xferNeed(x.from.arrival,r.departure);
       if(vkey(r)!==orig&&buf>=0)rides.push({k,r,buf});
     } else walks.push({k,a});
   }
