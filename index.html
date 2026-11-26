@@ -197,7 +197,7 @@ const ICON={T:'<svg viewBox="0 0 24 24"><path d="M9 0h6v2H9zM7 3h10a2 2 0 0 1 2 
 const WALK='<svg viewBox="0 0 24 24"><circle cx="13.5" cy="3.8" r="2.1"/><path d="M10.2 7.2 6.5 9v4h2v-2.7l1.4-.6-2 9.8H10l1.3-5.6 2.2 2.1V21h2v-5.8l-2.3-2.2.7-3.2a6 6 0 0 0 4.1 2.2v-2a4 4 0 0 1-3.2-2l-1-1.6a2.2 2.2 0 0 0-2.8-.8z"/></svg>';
 const mins=s=>Math.max(1,Math.round(s/60));
 const icon=r=>/^(B|NFB|BUS|KB)$/i.test(r.journey.category||'')?ICON.B:ICON.T;
-const st={raw:[],maxWalk:5,from:'',to:'',time:new Date(),conns:[],selKey:null,demo:false,live:false,updated:0,planB:null,me:null,
+const st={tn:0,userMoved:0,routePts:[],walkFallback:false,raw:[],maxWalk:5,from:'',to:'',time:new Date(),conns:[],selKey:null,demo:false,live:false,updated:0,planB:null,me:null,
   prog:new Map(),fitKey:'',veh:[],band:[],busy:false,pending:false,appr:new Map(),orig:new Map()};
 
 function walkSec(s){
@@ -232,7 +232,7 @@ function analyse(c){
 function tidy(list,keep){
   const L=st.maxWalk*60,D=o=>dep(o.c.from)??0,A=o=>arr(o.c.to)??0;
   const all=list.map(c=>({c,a:analyse(c),k:ckey(c)})).filter(o=>o.a.valid||o.k===keep);
-  let b=all.filter(o=>o.a.maxWalk<=L||o.k===keep);if(!b.length)b=all;
+  let b=all.filter(o=>o.a.maxWalk<=L||o.k===keep);if(keep!==undefined)st.walkFallback=!b.length&&all.length>0;if(!b.length)b=all;
   const seen=new Set();b=b.filter(o=>!seen.has(o.k)&&seen.add(o.k));
   b=b.filter(o=>o.k===keep||!b.some(p=>p!==o&&D(p)>=D(o)&&A(p)<=A(o)&&(D(p)>D(o)||A(p)<A(o)||p.a.walkTotal<o.a.walkTotal)));
   b.sort((x,y)=>D(x)-D(y)||A(x)-A(y));
@@ -361,7 +361,7 @@ function pos(r){
 function render(){
   const A=st.conns.map(analyse),si=selIndex();
   const best=A[0]&&A[0].level==='bad'?A.findIndex(a=>a.level!=='bad'):-1;
-  $('#list').innerHTML=st.conns.length?'<h2>Verbindungen · antippen zum Anzeigen</h2>'+st.conns.map((c,i)=>card(c,A[i],i===si,i===best)).join('')
+  $('#list').innerHTML=st.conns.length?(st.walkFallback?`<p class="note">Keine Verbindung mit höchstens ${st.maxWalk} Min. Fussweg gefunden – zeige alle.</p>`:'')+'<h2>Verbindungen · antippen zum Anzeigen</h2>'+st.conns.map((c,i)=>card(c,A[i],i===si,i===best)).join('')
     :'<p class="empty">Keine Verbindung gefunden. Haltestellennamen prüfen (z.B. «Basel, Barfüsserplatz»).</p>';
   renderFocus(st.conns[si],A[si]);
   drawMap(A[si]);
@@ -427,6 +427,7 @@ let map=null,layer,vehLayer,tiles=null;
 if(window.L){
   map=L.map('map',{zoomControl:true}).setView([47.5576,7.5880],14);
   layer=L.layerGroup().addTo(map);vehLayer=L.layerGroup().addTo(map);
+  ['touchstart','mousedown','wheel'].forEach(ev=>map.getContainer().addEventListener(ev,()=>{st.userMoved=Date.now()/1000},{passive:true}));
 }
 function addTiles(){
   if(!map||tiles)return;
@@ -449,7 +450,7 @@ function drawMap(a){
     if(!it.ghost)own.forEach((p,j)=>L.circleMarker(p,{radius:j===0||j===own.length-1?4:2.5,color:dark()?'#5d6561':'#b4bbb7',weight:1.5,fillColor:'#fff',fillOpacity:1,interactive:false}).addTo(layer));
     const P0=pos(it.r);
     const m=L.marker(P0&&P0.p||own[0],{interactive:false,keyboard:false,icon:L.divIcon({className:'vwrap',iconSize:[0,0],html:`<div class="veh${it.ghost?' ghost':''}" style="--c:${it.css}">${icon(it.r)}<b></b></div>`})}).addTo(vehLayer);
-    st.veh.push({r:it.r,m,label:it.r.journey.number||it.r.journey.name||'?'});
+    st.veh.push({r:it.r,m,ghost:it.ghost,lastP:null,label:it.r.journey.number||it.r.journey.name||'?'});
     if(!it.ghost&&P0&&P0.prog<b)pts.push(P0.p);
   }
   for(const w of a.walks){const p1=ll(w.departure),p2=ll(w.arrival);if(p1&&p2){L.polyline([p1,p2],{color:dark()?'#9aa19d':'#69726d',weight:3,opacity:.8,dashArray:'1 7',lineCap:'round',interactive:false}).addTo(layer);pts.push(p1,p2)}}
@@ -459,6 +460,7 @@ function drawMap(a){
   a.xfers.forEach(x=>{const p=ll(x.to.departure);if(!p)return;L.circleMarker(p,{radius:10,color:LC[lvl(x.buf)],weight:2.5,fill:false,interactive:false}).addTo(layer);label(p,'Umstieg '+short(x.at))});
   if(lastR&&ll(lastR.arrival))label(ll(lastR.arrival),short(stn(lastR.arrival).name));
   if(st.me)L.circleMarker(st.me,{radius:7,color:'#fff',weight:3,fillColor:'#1e5bd6',fillOpacity:1,interactive:false}).addTo(layer);
+  st.routePts=pts.slice();
   const fk=st.selKey+'|'+nAppr;
   if(pts.length&&st.fitKey!==fk){map.fitBounds(pts,{padding:[36,36],maxZoom:16});st.fitKey=fk}
   tick();
@@ -468,10 +470,15 @@ function tick(){
   for(const v of st.veh){
     const el=v.m.getElement();if(!el)continue;const box=el.firstChild,P=pos(v.r);
     if(!P||P.done){el.style.display='none';continue}
-    el.style.display='';v.m.setLatLng(P.p);
+    el.style.display='';v.m.setLatLng(P.p);v.lastP=P.p;
     const b=box.querySelector('b'),txt=v.label+(P.waitMin!=null?` · ${P.waitMin}'`:'');
     if(b&&b.textContent!==txt)b.textContent=txt;
     box.classList.toggle('wait',P.b===0&&P.waitMin!=null);
+  }
+  if(map&&++st.tn%3===0&&now()-st.userMoved>25){
+    const vis=st.veh.filter(v=>!v.ghost&&v.lastP&&v.m.getElement()&&v.m.getElement().style.display!=='none');
+    const bb=map.getBounds().pad(-0.08);
+    if(vis.some(v=>!bb.contains(v.lastP))){st.autoFit=true;map.fitBounds([...(st.routePts||[]),...vis.map(v=>v.lastP)],{padding:[36,36],maxZoom:16,animate:true})}
   }
   for(const o of st.band){
     const P=pos(o.r);if(!P)continue;
@@ -514,7 +521,8 @@ const MW=$('#mw');
 try{const v=localStorage.getItem('rb-mw');if(v){MW.value=v}}catch(e){}
 st.maxWalk=+MW.value||5;
 MW.addEventListener('change',()=>{st.maxWalk=+MW.value||5;try{localStorage.setItem('rb-mw',MW.value)}catch(e){}
-  if(st.raw.length&&!st.demo){st.conns=tidy(st.raw,st.selKey);render();Promise.all([loadPlanB(),loadApproaches()]).then(render)}});
+  if(st.raw.length&&!st.demo){st.conns=tidy(st.raw,null);st.selKey=st.conns[0]?ckey(st.conns[0]):null;st.fitKey='';st.planB=null;
+    render();Promise.all([loadPlanB(),loadApproaches()]).then(render)}});
 $('#swap').addEventListener('click',()=>{const v=F.value;F.value=To.value;To.value=v});
 let acT;
 const ac=e=>{const v=e.target.value.trim();clearTimeout(acT);if(st.demo||v.length<2)return;
