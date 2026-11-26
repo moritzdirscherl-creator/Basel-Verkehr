@@ -285,7 +285,7 @@ async function loadApproach(r){
   }
   const bName=stn(r.departure).name,bId=stn(r.departure).id;
   if(!origin||origin===bName)return;
-  const q=new URLSearchParams({from:origin,to:bId||bName,limit:'6',date:ymd(new Date(dp*1000)),time:hhmm(new Date((dp-50*60)*1000))});
+  const q=new URLSearchParams({from:origin,to:bId||bName,limit:'6',isArrivalTime:'1',date:ymd(new Date(dp*1000)),time:hhmm(new Date((dp+120)*1000))});
   const res=await getJSON(API+'connections?'+q);
   for(const k of res.connections||[])for(const s of k.sections||[]){
     if(s.journey&&s.journey.name===j.name&&String(s.journey.number)===String(j.number)){
