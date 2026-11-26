@@ -715,8 +715,8 @@ function renderHero(){
   let cls='ride0',html,cdv=null,cdlv='';
   if(d&&!d.boarded){
     cls=d.level;
-    const cd=d.level==='bad'?(d.gone?'weg':'zu spät'):d.slack<120?mmss(d.slack):Math.floor(d.slack/60)+' Min.';
-    const cdl=d.level==='bad'?'':d.src?(d.slack<120?'bis du los musst':'bis los'):'bis Abfahrt';cdv=cd;cdlv=cdl;
+    const cd=d.level==='bad'?(d.gone?'weg':'zu spät'):d.slack<120?mmss(d.slack):d.slack>=5400?hm(d.tb):Math.floor(d.slack/60)+' Min.';
+    const cdl=d.level==='bad'?'':d.slack>=5400?'Abfahrt':d.src?(d.slack<120?'bis du los musst':'bis los'):'bis Abfahrt';cdv=cd;cdlv=cdl;
     const walkFirst=first&&!first.journey;
     const how=walkFirst?`${mins(walkSec(first))} Min. zu Fuss zur <b>${esc(short(stn(first.arrival).name))}</b>`
       :d.src==='gps'?`${mins(d.need)} Min. zu Fuss zur <b>${esc(short(stn(r0.departure).name))}</b>`
