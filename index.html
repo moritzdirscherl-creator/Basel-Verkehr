@@ -207,6 +207,9 @@ details.planb[open] summary::after{transform:rotate(90deg)}
 details.planb ul{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:6px}
 details.planb li{display:flex;gap:8px;align-items:center;font-size:14px}
 details.planb .ln{background:var(--pb)}
+.pbh{font-size:12px;font-weight:600;color:var(--muted);margin:2px 0 6px}
+details.planb li{flex-wrap:wrap}
+.pbgo{margin-left:auto;min-height:34px;padding:0 10px;border-radius:8px;background:var(--soft);border:1px solid var(--line);color:var(--ink);font-size:13px}
 .foot{font-size:12px;color:var(--muted);margin:6px 0 0}
 @media(prefers-reduced-motion:reduce){.track .dot{transition:none}}
 </style>
@@ -225,7 +228,6 @@ details.planb .ln{background:var(--pb)}
     <div class="chips routes" id="routeChips"></div>
     <div class="actions">
       <button class="go" type="submit">Längt's? – ab jetzt</button>
-      <label class="opt">Fussweg max. <select id="mw"><option value="3">3 Min.</option><option value="5" selected>5 Min.</option><option value="10">10 Min.</option><option value="99">egal</option></select></label>
     </div>
     <datalist id="stations"></datalist>
   </form>
@@ -274,7 +276,7 @@ const ICON={T:'<svg viewBox="0 0 24 24"><path d="M9 0h6v2H9zM7 3h10a2 2 0 0 1 2 
 const WALK='<svg viewBox="0 0 24 24"><circle cx="13.5" cy="3.8" r="2.1"/><path d="M10.2 7.2 6.5 9v4h2v-2.7l1.4-.6-2 9.8H10l1.3-5.6 2.2 2.1V21h2v-5.8l-2.3-2.2.7-3.2a6 6 0 0 0 4.1 2.2v-2a4 4 0 0 1-3.2-2l-1-1.6a2.2 2.2 0 0 0-2.8-.8z"/></svg>';
 const mins=s=>Math.max(1,Math.round(s/60));
 const icon=r=>/^(B|NFB|BUS|KB)$/i.test(r.journey.category||'')?ICON.B:ICON.T;
-const st={tn:0,userMoved:0,routePts:[],walkFallback:false,raw:[],maxWalk:5,from:'',to:'',time:new Date(),conns:[],selKey:null,demo:false,live:false,updated:0,planB:null,me:null,
+const st={tn:0,userMoved:0,routePts:[],walkFallback:false,raw:[],from:'',to:'',time:new Date(),conns:[],selKey:null,demo:false,live:false,updated:0,planB:null,me:null,
   prog:new Map(),fitKey:'',veh:[],band:[],busy:false,pending:false,appr:new Map(),orig:new Map()};
 
 function walkSec(s){
@@ -306,14 +308,23 @@ function analyse(c){
   const min=bufs.length?Math.min(...bufs):null;
   return {rides,xfers,walks,reach,min,level:lvl(min),valid,maxWalk,walkTotal};
 }
-function tidy(list,keep){
-  const L=st.maxWalk*60,D=o=>dep(o.c.from)??0,A=o=>arr(o.c.to)??0;
+function tidy(list,keep,walkMode){
+  const D=o=>dep(o.c.from)??0,A=o=>arr(o.c.to)??0;
   const all=list.map(c=>({c,a:analyse(c),k:ckey(c)})).filter(o=>o.a.valid||o.k===keep);
-  let b=all.filter(o=>o.a.maxWalk<=L||o.k===keep);if(keep!==undefined)st.walkFallback=!b.length&&all.length>0;if(!b.length)b=all;
+  let b;
+  if(walkMode)b=all.filter(o=>o.a.walkTotal>0);
+  else{const noW=all.filter(o=>o.a.walkTotal===0||o.k===keep);
+    if(keep!==undefined)st.walkFallback=!noW.length&&all.length>0;b=noW.length?noW:all}
   const seen=new Set();b=b.filter(o=>!seen.has(o.k)&&seen.add(o.k));
   b=b.filter(o=>o.k===keep||!b.some(p=>p!==o&&D(p)>=D(o)&&A(p)<=A(o)&&(D(p)>D(o)||A(p)<A(o)||p.a.walkTotal<o.a.walkTotal)));
   b.sort((x,y)=>D(x)-D(y)||A(x)-A(y));
   return b.slice(0,6).map(o=>o.c);
+}
+/* Fussweg-Varianten der Hauptsuche, die früher ankommen als die gewählte Verbindung */
+function walkOpts(sel){
+  if(!sel||!st.raw.length)return[];
+  const aSel=arr(sel.to),t=now();
+  return tidy(st.raw,undefined,true).filter(c=>{const d=dep(c.from),a=arr(c.to);return d!=null&&d>=t-30&&a!=null&&aSel!=null&&a<aSel-60}).slice(0,2);
 }
 function selIndex(){const i=st.conns.findIndex(c=>ckey(c)===st.selKey);return i<0?0:i}
 
@@ -355,17 +366,33 @@ async function load(fresh){
 async function loadPlanB(){
   const c=st.conns[selIndex()];if(!c){st.planB=null;return}
   const x=analyse(c).xfers[0];if(!x||x.arr==null){st.planB=null;return}
-  let list;
-  if(st.demo)list=demoPlanB();
+  let raw;
+  if(st.demo)raw=demoPlanB();
   else{
     const d=new Date(x.arr*1000);
-    const q=new URLSearchParams({from:x.atId||x.at,to:st.to,limit:'8',date:ymd(d),time:hhmm(d)});
-    try{list=tidy((await getJSON(API+'connections?'+q)).connections||[])}catch(e){return}
+    const q=new URLSearchParams({from:x.atId||x.at,to:st.to,limit:'10',date:ymd(d),time:hhmm(d)});
+    try{raw=(await getJSON(API+'connections?'+q)).connections||[]}catch(e){return}
   }
   const orig=vkey(x.to);
-  st.planB={x,list:list.map(k=>{const r=(k.sections||[]).find(s=>s.journey);if(!r)return null;
-    const same=stn(r.departure).id===x.atId;const buf=dep(r.departure)-x.arr-(same?60:180);
-    return {k,r,buf}}).filter(o=>o&&vkey(o.r)!==orig&&o.buf>=0).slice(0,3)};
+  const rides=[],walks=[];
+  for(const k of raw){
+    const a=analyse(k);if(!a.valid||!a.rides.length)continue;
+    const r=a.rides[0],first=(k.sections||[])[0];
+    if(a.walkTotal===0&&first&&first.journey){
+      const same=stn(r.departure).id===x.atId,buf=dep(r.departure)-x.arr-(same?60:180);
+      if(vkey(r)!==orig&&buf>=0)rides.push({k,r,buf});
+    } else walks.push({k,a});
+  }
+  rides.sort((p,q)=>dep(p.r.departure)-dep(q.r.departure));
+  const seen=new Set(),list=rides.filter(o=>{const s=vkey(o.r);return!seen.has(s)&&seen.add(s)}).slice(0,3);
+  const bestArr=list.length?arr(list[0].k.to):Infinity;
+  /* Fussweg-Alternativen nur, wenn sie früher ankommen als das erste Tram von Plan B */
+  const wk=walks.filter(o=>{const d=dep(o.k.from),a=arr(o.k.to);return d!=null&&d>=x.arr&&a!=null&&a<bestArr-60})
+    .sort((p,q)=>arr(p.k.to)-arr(q.k.to)).slice(0,1);
+  /* ganz zu Fuss ans Ziel */
+  let foot=null;const p1=ll(x.to.departure),p2=ll(c.to);
+  if(p1&&p2){const m=hav(p1,p2)*1.3,s=m/1.25,a=x.arr+s;if(m<=1600&&a<bestArr-60)foot={m,s,a,to:stn(c.to).name}}
+  st.planB={x,list,walk:wk,foot};
 }
 
 /* Anfahrt: Haltestellen VOR dem Einstieg, über die Gegenrichtung an der Endhaltestelle */
@@ -438,7 +465,7 @@ function pos(r){
 function render(){
   const A=st.conns.map(analyse),si=selIndex();
   const best=A[0]&&A[0].level==='bad'?A.findIndex(a=>a.level!=='bad'):-1;
-  $('#list').innerHTML=st.conns.length?(st.walkFallback?`<p class="note">Keine Verbindung mit höchstens ${st.maxWalk} Min. Fussweg gefunden – zeige alle.</p>`:'')
+  $('#list').innerHTML=st.conns.length?(st.walkFallback?`<p class="note">Ohne Fussweg gibt es hier keine Verbindung – zeige Varianten mit Fussweg.</p>`:'')
     +'<h2>Alle Verbindungen · antippen zum Anzeigen</h2>'+st.conns.map((c,i)=>card(c,A[i],i===si,i===best)).join('')
     +'<p class="foot">Fahrzeugpositionen berechnet aus Fahrplan und Echtzeit-Prognose (kein GPS). Daten: transport.opendata.ch</p>'
     :'<p class="empty">Keine Verbindung gefunden. Haltestellennamen prüfen (z.B. «Basel, Barfüsserplatz»).</p>';
@@ -450,7 +477,7 @@ function head(c,a){
   const d0=dep(c.from),d0p=c.from&&c.from.departureTimestamp,a1=arr(c.to);
   const late=d0p&&d0-d0p>=60?`<span class="late">+${Math.round((d0-d0p)/60)}</span>`:'';
   const m=d0!=null?Math.floor((d0-now())/60):null;
-  return `<span class="time">${hm(d0)}</span>${late}<span class="arrt">→ ${hm(a1)}</span>${m!=null&&m>=0&&m<60?`<span class="in">in ${m}'</span>`:''}`;
+  return `<span class="time">${hm(d0)}</span>${late}<span class="arrt">→ ${hm(a1)}</span>${m!=null&&m>=0&&m<60?`<span class="in">${m===0?'jetzt':'in '+m+"'"}</span>`:''}`;
 }
 const isBus=r=>/^(B|NFB|BUS|KB)$/i.test(r.journey.category||'');
 const LN=(r,cls='')=>`<span class="ln${isBus(r)?' bus':''}${cls?' '+cls:''}" title="${isBus(r)?'Bus':'Tram'} ${esc(r.journey.number||'')}">${esc(r.journey.number||r.journey.category||'?')}</span>`;
@@ -494,7 +521,7 @@ function renderHero(){
     cls=d.level;
     const r0=d.r0,walkTxt=d.src==='gps'?`${mins(d.need)} Min. zu Fuss`:d.src==='walk'?`${mins(d.need)} Min. Fussweg`:'';
     const cd=d.level==='bad'?(d.gone?'weg':'zu spät'):d.slack<120?mmss(d.slack):Math.floor(d.slack/60)+' Min.';
-    const cdl=d.level==='bad'?'':d.slack<120?'bis du los musst':'bis los';
+    const cdl=d.level==='bad'?'':d.src?(d.slack<120?'bis du los musst':'bis los'):'bis Abfahrt';
     top=`<div class="hl">Abfahrt</div><div class="dep"><span class="w">${DV[d.level]}</span><span class="cd">${cd}<small>${cdl}</small></span></div>
       <div class="dsub">${LN(r0)}<span>${hm(d.tb)} ab <b>${esc(short(stn(r0.departure).name))}</b></span>${walkTxt?`<span class="mu">· ${walkTxt}</span>`:''}${!st.me?`<span class="mu">· ohne Standort</span>`:''}</div>`;
     if(d.level==='bad'){const n=nextOk();
@@ -545,10 +572,24 @@ function renderFocus(c,a){
     if(x)h+=`<li class="step xstep" style="--lc:${LC[lvl(x.buf)]}"><span class="mk"></span><div class="xbox ${lvl(x.buf)}"><span>${x.walk&&x.fromAt!==x.at?`Umsteigen ${esc(short(x.fromAt))} → ${esc(short(x.at))}<small>${mins(x.walk)} Min. zu Fuss</small>`:`Umsteigen ${esc(short(x.at))}`}</span><b>${bufTxt(x.buf)}</b></div></li>`;
   });
   h+=`<li class="step end"><span class="mk"></span><div class="s1"><span>Ankunft <b>${esc(short(stn(c.to).name))}</b></span><span class="tm">${hm(arr(c.to))}</span></div></li></ol>`;
-  if(st.planB&&st.planB.x){
-    const x=st.planB.x,open=a.level==='bad'||a.level==='warn';
-    h+=`<details class="planb"${open?' open':''}><summary>Plan B ab ${esc(short(x.at))} (${st.planB.list.length})</summary>`+(st.planB.list.length?'<ul>'+st.planB.list.map(o=>
-      `<li><span class="num">${hm(dep(o.r.departure))}</span>${LN(o.r)}<span>→ an ${hm(arr(o.k.to))}</span></li>`).join('')+'</ul>':'<p class="note">Keine erreichbare Alternative gefunden.</p>')+'</details>';
+  const wo=walkOpts(c);st.walkOptsCur=wo;
+  if((st.planB&&st.planB.x)||wo.length){
+    const pb=st.planB&&st.planB.x?st.planB:null,open=a.level==='bad'||a.level==='warn';
+    const n=(pb?pb.list.length+pb.walk.length+(pb.foot?1:0):0)+wo.length;
+    h+=`<details class="planb"${open?' open':''}><summary>Plan B${pb?' ab '+esc(short(pb.x.at)):''} (${n})</summary>`;
+    if(pb){
+      h+=pb.list.length?'<ul>'+pb.list.map(o=>`<li><span class="num">${hm(dep(o.r.departure))}</span>${LN(o.r)}<span>→ an ${hm(arr(o.k.to))}</span></li>`).join('')+'</ul>'
+        :'<p class="note">Kein anderes Tram/Bus ab hier.</p>';
+      if(pb.walk.length||pb.foot){
+        h+='<p class="pbh">Mit Fussweg</p><ul>';
+        if(pb.foot)h+=`<li><span class="num">${hm(pb.x.arr)}</span><span class="wchip">${WALK}${mins(pb.foot.s)}'</span><span>ganz zu Fuss · an ${hm(pb.foot.a)}</span></li>`;
+        h+=pb.walk.map(o=>`<li><span class="num">${hm(dep(o.k.from))}</span>${(o.k.sections||[]).map(s=>s.journey?LN(s):`<span class="wchip">${WALK}${mins(walkSec(s))}'</span>`).join('')}<span>→ an ${hm(arr(o.k.to))}</span></li>`).join('')+'</ul>';
+      }
+    }
+    if(wo.length){
+      h+=`<p class="pbh">Ab Start mit Fussweg – früher da</p><ul>`+wo.map(k=>`<li><span class="num">${hm(dep(k.from))}</span>${(k.sections||[]).map(s=>s.journey?LN(s):`<span class="wchip">${WALK}${mins(walkSec(s))}'</span>`).join('')}<span>an ${hm(arr(k.to))} · ${Math.round((arr(c.to)-arr(k.to))/60)} Min. früher</span><button type="button" class="pbgo" data-wk="${esc(ckey(k))}">Anzeigen</button></li>`).join('')+'</ul>';
+    }
+    h+='</details>';
   }
   F.innerHTML=h;
   F.querySelectorAll('.step.ride').forEach(el=>{const r=a.rides[+el.dataset.i];st.band.push({r,track:el.querySelector('.track'),now:el.querySelector('.now'),sig:'',dot:null})});
@@ -693,12 +734,6 @@ $('#f').addEventListener('click',e=>{
   if(b.dataset.set==='from'){F.value=b.dataset.v;renderChips();if(To.value.trim())go();else To.focus()}
   if(b.dataset.set==='to'){To.value=b.dataset.v;renderChips();if(F.value.trim())go();else F.focus()}
 });
-const MW=$('#mw');
-try{const v=localStorage.getItem('rb-mw');if(v){MW.value=v}}catch(e){}
-st.maxWalk=+MW.value||5;
-MW.addEventListener('change',()=>{st.maxWalk=+MW.value||5;try{localStorage.setItem('rb-mw',MW.value)}catch(e){}
-  if(st.raw.length&&!st.demo){st.conns=tidy(st.raw,null);st.selKey=st.conns[0]?ckey(st.conns[0]):null;st.fitKey='';st.planB=null;
-    render();Promise.all([loadPlanB(),loadApproaches()]).then(render)}});
 $('#swap').addEventListener('click',()=>{const v=F.value;F.value=To.value;To.value=v;renderChips()});
 let acT;
 const ac=e=>{renderChips();const v=e.target.value.trim();clearTimeout(acT);if(st.demo||v.length<2)return;
@@ -710,6 +745,10 @@ const selectKey=k=>{if(!k||k===st.selKey)return;st.selKey=k;st.planB=null;st.las
   window.scrollTo({top:0,behavior:'smooth'});Promise.all([loadPlanB(),loadApproaches()]).then(render)};
 const pick=el=>{const a=el.closest('article');if(a)selectKey(a.dataset.k)};
 $('#list').addEventListener('click',e=>pick(e.target));
+$('#focus').addEventListener('click',e=>{const b=e.target.closest('button[data-wk]');if(!b)return;
+  const k=(st.walkOptsCur||[]).find(c=>ckey(c)===b.dataset.wk);if(!k)return;
+  if(!st.conns.some(c=>ckey(c)===b.dataset.wk)){st.conns.push(k);st.conns.sort((x,y)=>(dep(x.from)??0)-(dep(y.from)??0))}
+  selectKey(b.dataset.wk)});
 $('#list').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick(e.target)}});
 $('#hero').addEventListener('click',e=>{const b=e.target.closest('button[data-k]');if(b)selectKey(b.dataset.k)});
 /* Standort: nächste Haltestellen + Abfahrts-Ampel */
