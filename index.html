@@ -504,7 +504,7 @@ function drawTrack(o,P){
 function legStatus(P,r){
   const pl=k=>k===1?'1 Halt':k+' Halte';
   const at=i=>esc(short(stn(P.pl[Math.min(P.n,Math.max(0,i))]).name));
-  const i=Math.floor(P.prog),f=P.prog-i,where=f<0.15?`bei ${at(i)}`:`nach ${at(i)}`;
+  const i=Math.floor(P.prog),f=P.prog-i,where=f<0.15?`bei ${at(i)}`:f>0.85?`kurz vor ${at(i+1)}`:`zwischen ${at(i)} und ${at(i+1)}`;
   if(P.done||P.prog>=P.n)return'angekommen';
   if(P.prog<P.b)return`Jetzt ${where} <em>· noch ${pl(P.b-i)} bis zu dir · ${P.waitMin??0} Min.</em>`;
   if(P.waitMin!=null)return P.b>0?`Steht an deiner Haltestelle <em>· fährt in ${P.waitMin} Min.</em>`:`Abfahrt in ${P.waitMin} Min. <em>· Position noch unbekannt</em>`;
@@ -527,7 +527,7 @@ function drawMap(a){
   layer.clearLayers();vehLayer.clearLayers();
   if(!a)return;
   const items=a.rides.map(r=>({r,col:ACC(),css:'var(--acc)',ghost:false}));
-  if(st.planB&&(a.level==='bad'||a.level==='warn'))st.planB.list.slice(0,2).forEach(o=>items.push({r:o.r,col:PBC(),css:'var(--pb)',ghost:true}));
+  if(st.planB&&(a.level==='bad'||a.level==='warn'))st.planB.list.slice(0,1).forEach(o=>items.push({r:o.r,col:PBC(),css:'var(--pb)',ghost:true}));
   const pts=[];let nAppr=0;
   for(const it of items){
     const{pl,b}=listFor(it.r);const P=pl.map(ll);if(P.length<2)continue;
