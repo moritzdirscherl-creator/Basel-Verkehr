@@ -162,6 +162,10 @@ h2{font-size:13px;font-weight:600;color:var(--muted);margin:4px 0 0;text-transfo
 .alt{margin-top:8px;padding:8px 10px;border-radius:10px;background:var(--card);font-size:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .alt b{font:700 18px "Barlow Semi Condensed",sans-serif}
 .alt button{margin-left:auto;min-height:36px;padding:0 12px;background:var(--ink);color:var(--card);font-size:14px}
+.tip{display:flex;align-items:center;gap:8px;margin-top:8px;padding:6px 10px;border-radius:10px;background:var(--card);font-size:13px;flex-wrap:wrap}
+.tip>svg{width:16px;height:16px;fill:var(--muted);flex:none}
+.tip .ln{min-width:24px;height:20px;font-size:13px;background:var(--pb)}
+.tip button{margin-left:auto;min-height:32px;padding:0 10px;border-radius:8px;background:var(--soft);border:1px solid var(--line);color:var(--ink);font-size:13px}
 .arrrow{display:flex;justify-content:space-between;margin-top:10px;font-size:14px;color:var(--muted)}
 .arrrow b{color:var(--ink);font:700 18px "Barlow Semi Condensed",sans-serif}
 #hero.blink::after{content:"";position:absolute;inset:12px max(4vw,14px) 0;border-radius:16px;background:var(--warn);pointer-events:none;opacity:0;animation:blink .55s ease-in-out 7}
@@ -391,9 +395,9 @@ async function hops(A,B,t,n=1,span=2){
   const found=[],seen=new Set();
   for(let k=0;k<span&&found.length<n;k++){
     const L=await board(A,t+k*900);
-    for(const e of L){const d=dep(e.stop);if(d==null||d<t)continue;
+    for(const e of L){const d=dep(e.stop);if(d==null||d<t||d>t+30*60)continue;
       const j=(e.passList||[]).findIndex((p,i)=>i>0&&String(stn(p).id)===B);
-      if(j>0){const s=secFromBoard(e,j),v=vkey(s);if(!seen.has(v)){seen.add(v);found.push(s)}}}
+      if(j>0){const s=secFromBoard(e,j),v=vkey(s),aa=arr(s.arrival);if(aa==null||aa-d>60*60)continue;if(!seen.has(v)){seen.add(v);found.push(s)}}}
   }
   return found.sort((x,y)=>dep(x.departure)-dep(y.departure)).slice(0,n);
 }
@@ -409,6 +413,7 @@ async function rebuild(c,t0){
     out.push(hp);t=arr(hp.arrival)??t;
   }
   if(!out.length||out.every(s=>!s.journey))return null;
+  const d0=dep(out[0].departure),a1=arr(out[out.length-1].arrival);if(d0==null||a1==null||a1-d0>2*3600||a1<d0)return null;
   return{from:out[0].departure,to:out[out.length-1].arrival,sections:out,built:true};
 }
 async function buildRoutes(raw){
@@ -631,7 +636,10 @@ function renderHero(){
     if((L==='bad'||L==='warn')&&st.planB&&st.planB.list.length){const o=st.planB.list[0];
       xr+=`<div class="alt">${L==='bad'?'Nimm stattdessen':'Falls verpasst'}: ${LN(o.r)} <b>${hm(dep(o.r.departure))}</b> ab ${esc(short(st.planB.x.at))} · an ${hm(arr(o.k.to))}</div>`}
   } else if(a.rides.length===1) xr=`<div class="xr ride0"><span class="xt"><span class="hl">Umstieg</span>keiner – direkt ans Ziel</span></div>`;
-  const html=`<div class="hero ${cls}">${top}${xr}<div class="arrrow"><span>Ankunft ${esc(short(stn(c.to).name))}</span><b>${hm(arr(c.to))}</b></div></div>`;
+  let tip='';
+  if(d&&!d.boarded){const w=walkOpts(c).filter(k=>arr(k.to)!=null&&arr(c.to)-arr(k.to)>=300).sort((x,y)=>arr(x.to)-arr(y.to))[0];
+    if(w)tip=`<div class="tip">${WALK}<span>Mit Fussweg <b>${Math.round((arr(c.to)-arr(w.to))/60)} Min. früher</b>: ${lnsOf(w)} an ${hm(arr(w.to))}</span><button type="button" data-view="alt">Ansehen</button></div>`}
+  const html=`<div class="hero ${cls}">${top}${xr}${tip}<div class="arrrow"><span>Ankunft ${esc(short(stn(c.to).name))}</span><b>${hm(arr(c.to))}</b></div></div>`;
   if(html!==st.heroSig){H.innerHTML=html;st.heroSig=html}
   /* Renn!: gelb blinken + vibrieren, einmal beim Wechsel */
   const lv=d&&!d.boarded?d.level:'';
@@ -847,7 +855,7 @@ $('#alts').addEventListener('click',e=>{const s=e.target.closest('button[data-se
   if(!st.conns.some(c=>ckey(c)===b.dataset.wk)){st.conns.push(k);st.conns.sort((x,y)=>(dep(x.from)??0)-(dep(y.from)??0))}
   selectKey(b.dataset.wk)});
 $('#list').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick(e.target)}});
-$('#hero').addEventListener('click',e=>{const b=e.target.closest('button[data-k]');if(b)selectKey(b.dataset.k)});
+$('#hero').addEventListener('click',e=>{const v=e.target.closest('button[data-view]');if(v){setView(v.dataset.view);return}const b=e.target.closest('button[data-k]');if(b)selectKey(b.dataset.k)});
 /* Standort: nächste Haltestellen + Abfahrts-Ampel */
 let watching=false;
 function locate(manual){
