@@ -249,6 +249,7 @@ details.planb li{flex-wrap:wrap}
 .tile.gst .tt.gw{font-size:36px;line-height:1;color:var(--lt)}
 .tile.gst .tr{font-size:30px}
 .tile.gst .tic{background:var(--card)}
+.acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.acts .gpsbtn{min-height:40px;padding:0 14px;font-size:14px;font-weight:600;display:inline-flex;align-items:center;gap:6px}.acts .gpsbtn svg{width:18px;height:18px}.gpsbtn.ghost{background:transparent;font-weight:500;color:var(--muted)}
 .gpsbtn{min-height:32px;padding:0 10px;border-radius:8px;background:var(--card);border:1px solid var(--line);color:var(--ink);font-size:13px}
 .gsub{margin-top:8px;font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .tile.gst.blink::after{content:"";position:absolute;inset:-2px;border-radius:16px;background:var(--warn);pointer-events:none;opacity:0;animation:blink .55s ease-in-out 7}
@@ -358,7 +359,7 @@ const lineLabel=r=>{const j=r.journey,c=String(j.category||'').trim(),n=String(j
   if(!n||n===c)return c||'Zug';
   return n.length>3?c:(/^\d/.test(n)&&c.length===1?c+n:c+' '+n)};
 const st={tn:0,userMoved:0,routePts:[],walkFallback:false,raw:[],from:'',to:'',time:new Date(),conns:[],selKey:null,demo:false,live:false,updated:0,planB:null,me:null,
-  prog:new Map(),rideState:new Map(),offAt:new Map(),alerted:new Set(),meAt:0,meAcc:null,meSpd:null,apprState:new Map(),apprAt:new Map(),apprSrc:new Map(),fitKey:'',veh:[],band:[],busy:false,pending:false,appr:new Map(),orig:new Map()};
+  prog:new Map(),rideState:new Map(),manual:new Map(),offAt:new Map(),alerted:new Set(),meAt:0,meAcc:null,meSpd:null,apprState:new Map(),apprAt:new Map(),apprSrc:new Map(),fitKey:'',veh:[],band:[],busy:false,pending:false,appr:new Map(),orig:new Map()};
 
 function walkSec(s){
   const a=s.departure&&s.departure.departureTimestamp,b=s.arrival&&s.arrival.arrivalTimestamp;
@@ -742,13 +743,20 @@ function meOnRide(r){
 }
 const meFresh=()=>st.me&&now()-(st.meAt||0)<120;
 function rideStatus(r){
-  if(!r||!meFresh())return null;
-  const key=vkey(r),s=st.rideState.get(key),t=now(),tb=dep(r.departure),ta=arr(r.arrival);
+  if(!r)return null;
+  const key=vkey(r),t=now(),tb=dep(r.departure),ta=arr(r.arrival),man=st.manual.get(key);
+  if(man==='in'){
+    if(ta!=null&&t>ta+90){st.rideState.set(key,'done');st.manual.delete(key);return{state:'done',manual:true}}
+    st.rideState.set(key,'in');return{state:'in',manual:true,pr:meFresh()?meOnRide(r):null};
+  }
+  if(man==='missed')return{state:'missed',manual:true};
+  if(!meFresh())return null;
+  const s=st.rideState.get(key);
   const pr=meOnRide(r);if(!pr)return null;
   const acc=Math.min(st.meAcc||40,120),adv=pr.prog-pr.b,spd=st.meSpd||0;
   if(s==='in'){
     if(ta!=null&&t>ta+90){st.rideState.set(key,'done');return{state:'done',pr}}
-    if(pr.d>250+acc){const o=(st.offAt.get(key)||t);st.offAt.set(key,o);if(t-o>60){st.rideState.delete(key);return null}}
+    if(man!=='no'&&pr.d>250+acc){const o=(st.offAt.get(key)||t);st.offAt.set(key,o);if(t-o>60){st.rideState.delete(key);return null}}
     else st.offAt.delete(key);
     return{state:'in',pr};
   }
@@ -756,7 +764,7 @@ function rideStatus(r){
   if(tb==null)return null;
   const onLine=pr.d<60+acc,moved=adv>0.2||spd>3;
   const P=pos(r),dVeh=P&&P.p?hav(st.me,P.p):9e9;
-  if(t>=tb-45&&onLine&&moved&&dVeh<500+acc){
+  if(man!=='no'&&t>=tb-45&&onLine&&moved&&dVeh<500+acc){
     st.rideState.set(key,'in');buzz([120,80,120]);return{state:'in',pr};
   }
   const nearStop=hav(st.me,ll(r.departure)||st.me)<200+acc;
@@ -768,18 +776,20 @@ function depStatus(c,a){
   const r0=a&&a.rides[0];if(!r0)return null;
   const tb=dep(r0.departure),t=now();if(tb==null)return null;
   const first=(c.sections||[])[0],stop=ll(r0.departure);
-  let need=0,src='';
-  if(st.me&&stop){const m=hav(st.me,stop)*1.3;need=m/1.25+20;src='gps';if(m<60)need=0}
+  let need=0,src='',atStop=false;const k0=vkey(r0);
+  if(st.manual.get(k0)==='stop'){need=0;src='tap';atStop=true}
+  else if(meFresh()&&stop){const m=hav(st.me,stop);need=m*1.3/1.25+20;src='gps';if(m<40+Math.min(st.meAcc||30,80)){need=0;atStop=true}}
   else if(first&&!first.journey){need=walkSec(first);src='walk'}
   const rs=rideStatus(r0);
   if(rs&&(rs.state==='in'||rs.state==='done'))return{boarded:true,gps:true,r0};
+  if(rs&&rs.state==='missed'&&rs.manual)return{level:'bad',gone:true,slack:tb-t,need:0,src,r0,tb,atStop};
   if(a.rides.slice(1).some(r=>{const x=rideStatus(r);return x&&x.state==='in'}))return{boarded:true,gps:true,r0};
   if(t>tb+20){
-    if(meFresh())return{level:'bad',gone:true,slack:tb-t-need,need,src,r0,tb};
-    return{boarded:true,r0};
+    if(meFresh()&&st.manual.get(k0)!=='stop')return{level:'bad',gone:true,slack:tb-t-need,need,src,r0,tb,atStop};
+    return{boarded:true,r0,ask:true};
   }
   const slack=tb-t-need;
-  return{level:slack>=120?'ok':slack>=0?'renn':'bad',slack,need,src,r0,tb};
+  return{level:slack>=120?'ok':slack>=0?'renn':'bad',slack,need,src,r0,tb,atStop};
 }
 const mmss=s=>{s=Math.max(0,Math.round(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
 function nextOk(){
@@ -794,13 +804,20 @@ function renderHero(){
   if(d&&!d.boarded){
     cls=d.level;
     const cd=d.level==='bad'?(d.gone?'weg':'zu spät'):d.slack<120?mmss(d.slack):d.slack>=5400?hm(d.tb):Math.floor(d.slack/60)+' Min.';
-    const cdl=d.level==='bad'?'':d.slack>=5400?'Abfahrt':d.src?(d.slack<120?'bis du los musst':'bis los'):'bis Abfahrt';cdv=cd;cdlv=cdl;
+    const cdl=d.level==='bad'?'':d.slack>=5400?'Abfahrt':d.src&&!d.atStop?(d.slack<120?'bis du los musst':'bis los'):'bis Abfahrt';cdv=cd;cdlv=cdl;
     const walkFirst=first&&!first.journey;
-    const how=walkFirst?`${mins(walkSec(first))} Min. zu Fuss zur <b>${esc(short(stn(first.arrival).name))}</b>`
-      :d.src==='gps'?`${mins(d.need)} Min. zu Fuss zur <b>${esc(short(stn(r0.departure).name))}</b>`
+    const atS=d.atStop&&!d.gone,k0=esc(vkey(r0));
+    const how=atS?`<b>An der Haltestelle ✓</b> ${esc(short(stn(r0.departure).name))}`:walkFirst?`${mins(walkSec(first))} Min. zu Fuss zur <b>${esc(short(stn(first.arrival).name))}</b>`
+      :d.src==='gps'&&d.need>0?`${mins(d.need)} Min. zu Fuss zur <b>${esc(short(stn(r0.departure).name))}</b>`
       :`ab <b>${esc(short(stn(r0.departure).name))}</b>`;
-    html=`<div class="th"><span class="tic">${walkFirst||d.src==='gps'?WALK:icon(r0)}</span><div class="tb"><div class="ts">Abfahrt</div><div class="tt gw">${DV[d.level]}</div></div><div class="tr"><span class="cdv"></span><small class="cdl"></small></div></div>
-      <div class="gsub">${how} · ${LN(r0)} ${hm(d.tb)}${mode(r0)==='train'&&plat(r0.departure)?` · <b>Gleis ${esc(plat(r0.departure))}</b>`:''}${!meFresh()?' <button type="button" class="gpsbtn" data-act="gps">📍 Standort an</button>':''}</div>`;
+    html=`<div class="th"><span class="tic">${!atS&&(walkFirst||d.src==='gps')?WALK:icon(r0)}</span><div class="tb"><div class="ts">Abfahrt</div><div class="tt gw">${DV[d.level]}</div></div><div class="tr"><span class="cdv"></span><small class="cdl"></small></div></div>
+      <div class="gsub">${how} · ${LN(r0)} ${hm(d.tb)}${mode(r0)==='train'&&plat(r0.departure)?` · <b>Gleis ${esc(plat(r0.departure))}</b>`:''}${!meFresh()&&!atS?' <button type="button" class="gpsbtn" data-act="gps">📍 Standort an</button>':''}</div>`;
+    if(!d.gone){const bt=[];
+      if(!atS)bt.push(`<button type="button" class="gpsbtn" data-act="stop" data-r="${k0}">🚏 Bin an der Haltestelle</button>`);
+      else if(d.src==='tap')bt.push(`<button type="button" class="gpsbtn ghost" data-act="undo" data-r="${k0}">Doch nicht</button>`);
+      if(d.tb-t<=180)bt.push(`<button type="button" class="gpsbtn" data-act="in" data-r="${k0}">${icon(r0)} Bin drin</button>`);
+      html+=`<div class="acts">${bt.join('')}</div>`}
+    else if(st.manual.get(vkey(r0))==='missed')html+=`<div class="acts"><button type="button" class="gpsbtn ghost" data-act="undo" data-r="${k0}">Doch erwischt?</button></div>`;
     if(d.level==='bad'){const n=nextOk();
       if(n)html+=`<div class="alt">Nächste: ${n.a.rides.map(r=>LN(r)).join(' ')} <b>${hm(n.d.tb)}</b> <span class="mu">${DV[n.d.level]}</span><button type="button" data-k="${esc(ckey(n.c))}">Anzeigen</button></div>`}
     const w=walkOpts(c).filter(k=>arr(k.to)!=null&&arr(c.to)-arr(k.to)>=300).sort((x,y)=>arr(x.to)-arr(y.to))[0];
@@ -814,7 +831,13 @@ function renderHero(){
     html=`<div class="th"><span class="tic">${icon(cr)}</span><div class="tb"><div class="ts">${inR?'Du bist drin ✓':d&&d.gps?'Unterwegs':'Unterwegs (angenommen)'}</div>`;
     html+=`<div class="tt">${LN(cr)} aussteigen: ${esc(short(stn(cr.arrival).name))}</div></div><div class="tr">${hm(arr(cr.arrival))}<small>${left===1?'<b>nächster Halt!</b>':left!=null?'noch '+left+' Halte':'dort an'}</small></div></div>`;
     if(nx)html+=`<div class="gsub">Dann umsteigen: ${LN(nx.to)} ${hm(nx.dep)} · <b style="color:${LC[lvl(nx.buf)]}">${LV[lvl(nx.buf)]}</b> <span class="mu">${bufTxt(nx.buf)}</span></div>`;
-    if(!meFresh())html+=`<div class="gsub"><button type="button" class="gpsbtn" data-act="gps">📍 Standort an – erkennt, ob du drin bist</button></div>`;
+    {const kc=esc(vkey(cr)),rsC=rideStatus(cr),bt=[];
+      if(!inR){bt.push(`<button type="button" class="gpsbtn" data-act="in" data-r="${kc}">${icon(cr)} Bin drin</button>`);
+        if(cr===r0)bt.push(`<button type="button" class="gpsbtn" data-act="missed" data-r="${kc}">Verpasst</button>`);
+        if(!meFresh())bt.push(`<button type="button" class="gpsbtn" data-act="gps">📍 Standort an</button>`)}
+      else if(rsC&&rsC.manual)bt.push(`<button type="button" class="gpsbtn ghost" data-act="undo" data-r="${kc}">Doch nicht drin</button>`);
+      else bt.push(`<button type="button" class="gpsbtn ghost" data-act="no" data-r="${kc}">Bin nicht drin</button>`);
+      html+=`<div class="acts">${bt.join('')}</div>`}
     /* Aussteige-Alarm einmal pro Fahrt */
     const ak=vkey(cr);if(inR&&left===1&&!st.alerted.has(ak)){st.alerted.add(ak);buzz([300,150,300,150,300]);G.classList.remove('blink');void G.offsetWidth;G.classList.add('blink');setTimeout(()=>{const g=document.getElementById('gotile');if(g)g.classList.remove('blink')},4200)}
   }
@@ -1060,7 +1083,12 @@ $('#alts').addEventListener('click',e=>{const s=e.target.closest('button[data-se
   if(!st.conns.some(c=>ckey(c)===b.dataset.wk)){st.conns.push(k);st.conns.sort((x,y)=>(dep(x.from)??0)-(dep(y.from)??0))}
   selectKey(b.dataset.wk)});
 $('#list').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick(e.target)}});
-$('#go').addEventListener('click',e=>{if(e.target.closest('[data-act=gps]')){locate(true);return}const v=e.target.closest('button[data-view]');if(v){setView(v.dataset.view);setTimeout(()=>{const w=document.getElementById('walksec');if(w)w.scrollIntoView({behavior:'smooth',block:'start'})},50);return}const b=e.target.closest('button[data-k]');if(b)selectKey(b.dataset.k)});
+$('#go').addEventListener('click',e=>{if(e.target.closest('[data-act=gps]')){locate(true);return}
+  const m=e.target.closest('[data-act][data-r]');if(m){const k=m.dataset.r,act=m.dataset.act;
+    if(act==='undo'){st.manual.delete(k);st.rideState.delete(k)}
+    else if(act==='no'){st.manual.set(k,'no');st.rideState.delete(k)}
+    else{st.manual.set(k,act);if(act!=='in')st.rideState.delete(k);if(act==='in')buzz(60)}
+    st.heroSig='';render();return}const v=e.target.closest('button[data-view]');if(v){setView(v.dataset.view);setTimeout(()=>{const w=document.getElementById('walksec');if(w)w.scrollIntoView({behavior:'smooth',block:'start'})},50);return}const b=e.target.closest('button[data-k]');if(b)selectKey(b.dataset.k)});
 /* Standort: nächste Haltestellen + Abfahrts-Ampel */
 let watching=false;
 function locate(manual){
