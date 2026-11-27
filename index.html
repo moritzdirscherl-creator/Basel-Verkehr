@@ -250,6 +250,7 @@ details.planb li{flex-wrap:wrap}
 .tile.gst .tr{font-size:30px}
 .tile.gst .tic{background:var(--card)}
 .acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.acts .gpsbtn{min-height:40px;padding:0 14px;font-size:14px;font-weight:600;display:inline-flex;align-items:center;gap:6px}.acts .gpsbtn svg{width:18px;height:18px}.gpsbtn.ghost{background:transparent;font-weight:500;color:var(--muted)}
+.in.due{color:light-dark(#8a6200,#ffc94d)}
 .gpsbtn{min-height:32px;padding:0 10px;border-radius:8px;background:var(--card);border:1px solid var(--line);color:var(--ink);font-size:13px}
 .gsub{margin-top:8px;font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .tile.gst.blink::after{content:"";position:absolute;inset:-2px;border-radius:16px;background:var(--warn);pointer-events:none;opacity:0;animation:blink .55s ease-in-out 7}
@@ -391,6 +392,8 @@ function analyse(c){
   const min=bufs.length?Math.min(...bufs):null;
   return {rides,xfers,walks,reach,min,level:lvl(min),valid,maxWalk,walkTotal};
 }
+/* Verbindungen bleiben nach Abfahrt noch GRACE Sek. sichtbar (Echtzeit hinkt), die gewählte bis zur Ankunft */
+function keepConn(c){const d=dep(c.from),a=arr(c.to),t=now();return d==null||d>=t-GRACE||(ckey(c)===st.selKey&&a!=null&&a>t)}
 const WMAX=5*60; /* Fusswege bis 5 Min. gelten als normale Verbindung */
 function tidy(list,keep,walkMode){
   const D=o=>dep(o.c.from)??0,A=o=>arr(o.c.to)??0;
@@ -463,20 +466,20 @@ async function buildRoutes(raw){
   if(!raw.length)return[];
   const t=now(),O=String(stn(raw[0].from).id||''),Z=String(stn(raw[0].to).id||'');
   const jobs=raw.filter(c=>analyse(c).walkTotal>0).slice(0,8).map(c=>{
-    const f=(c.sections||[])[0],t0=Math.max(t-30,(dep(c.from)??t)-(f&&!f.journey?walkSec(f):0));
+    const f=(c.sections||[])[0],t0=Math.max(t-GRACE,(dep(c.from)??t)-(f&&!f.journey?walkSec(f):0));
     return rebuild(c,t0).catch(()=>null)});
   /* direkte Fahrten Start -> Ziel */
-  if(O&&Z)jobs.push(hops(O,Z,t-30,5,3).then(L=>L.map(s=>({from:s.departure,to:s.arrival,sections:[s],built:true}))).catch(()=>[]));
+  if(O&&Z)jobs.push(hops(O,Z,t-GRACE,5,3).then(L=>L.map(s=>({from:s.departure,to:s.arrival,sections:[s],built:true}))).catch(()=>[]));
   return (await Promise.all(jobs)).flat().filter(Boolean);
 }
 async function load(fresh){
   if(st.busy){if(fresh)st.pending=true;return}
   st.busy=true;
   try{
-    if(fresh){st.time=new Date();st.selKey=null;st.builtAt=0;st.built=[];st.prog.clear();st.fitKey='';st.appr.clear();st.apprState.clear();st.apprAt.clear();st.planB=null}
+    if(fresh){st.selKey=null;st.builtAt=0;st.built=[];st.prog.clear();st.fitKey='';st.appr.clear();st.apprState.clear();st.apprAt.clear();st.planB=null}
     setStatus('Lade …');
     if(!st.demo){
-      const q=new URLSearchParams({from:st.from,to:st.to,limit:'10',date:ymd(st.time),time:hhmm(st.time)});
+      const qt=new Date(Date.now()-GRACE*1000),q=new URLSearchParams({from:st.from,to:st.to,limit:'10',date:ymd(qt),time:hhmm(qt)});
       try{const j=await getJSON(API+'connections?'+q);let raw=j.connections||[];
         /* Liste auffüllen, damit immer genug kommende Verbindungen da sind */
         const up=tidy(raw,undefined).filter(c=>(dep(c.from)??0)>now()).length;
@@ -484,7 +487,7 @@ async function load(fresh){
           if(last){const d2=new Date((last+60)*1000);try{const j2=await getJSON(API+'connections?'+new URLSearchParams({from:st.from,to:st.to,limit:'10',date:ymd(d2),time:hhmm(d2)}));raw=raw.concat(j2.connections||[])}catch(e){}}}
         if(fresh)setStatus('Suche Verbindungen …');
         if(fresh||!st.builtAt||now()-st.builtAt>90){try{st.built=await buildRoutes(raw)}catch(e){st.built=[]}st.builtAt=now()}
-        st.raw=raw;st.conns=tidy(raw.concat(st.built||[]),st.selKey);st.live=true;addTiles()}
+        st.raw=raw;st.conns=tidy(raw.concat(st.built||[]),st.selKey).filter(keepConn);st.live=true;addTiles()}
       catch(e){
         if(e.http){setStatus(`Fehler ${e.http} – API nicht erreichbar oder Limit erreicht`);return}
         if(st.live){setStatus('Keine Verbindung zur API – zeige letzten Stand');return}
@@ -493,7 +496,7 @@ async function load(fresh){
     }
     if(st.demo){st.raw=demoConns();st.conns=st.raw}
     if(fresh&&st.conns.length)compact(true);
-    if(!st.conns.some(c=>ckey(c)===st.selKey))st.selKey=st.conns[0]?ckey(st.conns[0]):null;
+    if(!st.conns.some(c=>ckey(c)===st.selKey)){const f=st.conns.find(c=>(dep(c.from)??0)>=now()-20)||st.conns[0];st.selKey=f?ckey(f):null}
     st.updated=now();
     render();
     await Promise.all([loadPlanB(),loadApproaches()]);
@@ -544,7 +547,7 @@ async function loadApproaches(){
 }
 async function loadApproach(r){
   const d=dep(r.departure),dp=r.departure&&r.departure.departureTimestamp;if(!d||!dp)return;
-  if(d<now()-60||d-now()>50*60)return;
+  if(d<now()-GRACE-30||d-now()>50*60)return;
   const key=vkey(r);if(st.apprState.has(key)&&now()-(st.apprAt.get(key)||0)<15)return;st.apprAt.set(key,now());
   const j=r.journey,B=String(stn(r.departure).id||'');if(!B)return;
   const same=e=>String(e.number)===String(j.number)&&e.category===j.category;
@@ -706,7 +709,7 @@ function head(c,a){
   const d0=dep(c.from),d0p=c.from&&c.from.departureTimestamp,a1=arr(c.to);
   const late=d0p&&d0-d0p>=60?`<span class="late">+${Math.round((d0-d0p)/60)}</span>`:'';
   const m=d0!=null?Math.floor((d0-now())/60):null;
-  return `<span class="time">${hm(d0)}</span>${late}<span class="arrt">→ ${hm(a1)}</span>${m!=null&&m>=0&&m<60?`<span class="in">${m===0?'jetzt':'in '+m+"'"}</span>`:''}`;
+  return `<span class="time">${hm(d0)}</span>${late}<span class="arrt">→ ${hm(a1)}</span>${m!=null&&m>=0&&m<60?`<span class="in">${m===0?'jetzt':'in '+m+"'"}</span>`:d0!=null&&d0<now()-20?`<span class="in due">fällig?</span>`:''}`;
 }
 const isBus=r=>mode(r)==='bus';
 const LN=(r,cls='')=>{const m=mode(r);return`<span class="ln${m==='bus'?' bus':m==='train'?' train':''}${cls?' '+cls:''}" title="${MODEN[m]} ${esc(lineLabel(r))}">${esc(lineLabel(r))}</span>`};
@@ -790,6 +793,8 @@ function depStatus(c,a){
   if(t>tb+20){
     const here=atStop||(meFresh()&&stop&&hav(st.me,stop)<150);
     if(here&&t<=tb+GRACE){if(sel)st.dueKey=k0;return{level:'due',due:true,slack:tb-t,need:0,src,r0,tb,atStop:true}}
+    if(!meFresh()&&t<=tb+GRACE&&!(first&&!first.journey))return{level:'due',due:true,slack:tb-t,need:0,src,r0,tb};
+    if(!here&&meFresh()&&t+need<=tb+GRACE)return{level:'due',due:true,way:true,slack:tb-t,need,src,r0,tb};
     if(here||meFresh())return{level:'bad',gone:true,likely:true,slack:tb-t-need,need,src,r0,tb,atStop};
     return{boarded:true,r0,ask:true};
   }
@@ -815,9 +820,10 @@ function renderHero(){
     const how=atS?`<b>An der Haltestelle ✓</b> ${esc(short(stn(r0.departure).name))}`:walkFirst?`${mins(walkSec(first))} Min. zu Fuss zur <b>${esc(short(stn(first.arrival).name))}</b>`
       :d.src==='gps'&&d.need>0?`${mins(d.need)} Min. zu Fuss zur <b>${esc(short(stn(r0.departure).name))}</b>`
       :`ab <b>${esc(short(stn(r0.departure).name))}</b>`;
-    html=`<div class="th"><span class="tic">${!atS&&(walkFirst||d.src==='gps')?WALK:icon(r0)}</span><div class="tb"><div class="ts">Abfahrt</div><div class="tt gw">${DV[d.level]}</div></div><div class="tr"><span class="cdv"></span><small class="cdl"></small></div></div>
+    html=`<div class="th"><span class="tic">${!atS&&(walkFirst||d.src==='gps')?WALK:icon(r0)}</span><div class="tb"><div class="ts">Abfahrt</div><div class="tt gw">${d.way?'Evtl. noch da':DV[d.level]}</div></div><div class="tr"><span class="cdv"></span><small class="cdl"></small></div></div>
       <div class="gsub">${how} · ${LN(r0)} ${hm(d.tb)}${mode(r0)==='train'&&plat(r0.departure)?` · <b>Gleis ${esc(plat(r0.departure))}</b>`:''}${!meFresh()&&!atS?' <button type="button" class="gpsbtn" data-act="gps">📍 Standort an</button>':''}</div>`;
-    if(d.due)html+=`<div class="gsub">Laut Daten abgefahren – die Echtzeit hinkt oft etwa 1 Min. hinterher. Noch nicht gekommen? Einfach warten.</div>`;
+    if(d.due&&d.way)html+=`<div class="gsub">Laut Daten abgefahren – ist es verspätet, reicht es evtl. noch. Lohnt sich, wenn du es schon siehst.</div>`;
+    else if(d.due)html+=`<div class="gsub">Laut Daten abgefahren – die Echtzeit hinkt oft etwa 1 Min. hinterher. Noch nicht gekommen? Einfach warten.</div>`;
     if(!d.gone){const bt=[];
       if(!atS)bt.push(`<button type="button" class="gpsbtn" data-act="stop" data-r="${k0}">🚏 Bin an der Haltestelle</button>`);
       else if(d.src==='tap')bt.push(`<button type="button" class="gpsbtn ghost" data-act="undo" data-r="${k0}">Doch nicht</button>`);
