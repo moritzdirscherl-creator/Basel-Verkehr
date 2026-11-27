@@ -582,10 +582,34 @@ async function loadApproach(r){
 }
 
 /* Haltestellenliste eines Fahrzeugs: Anfahrt + eigene Strecke; b = Index deines Einstiegs */
+const isoT=t=>new Date(t*1000).toISOString();
+function shifted(p,delta,floor){
+  const q=Object.assign({},p,{prognosis:Object.assign({},p.prognosis||{})});
+  const A=arr(p),D=dep(p);
+  if(A!=null)q.prognosis.arrival=isoT(Math.max(A+delta,floor));
+  if(D!=null)q.prognosis.departure=isoT(Math.max(D+delta,floor));
+  return q;
+}
 function listFor(r){
-  const a=st.appr.get(vkey(r))||[];
-  const pl=[...a.slice(0,-1),r.departure,...(r.journey.passList||[]).slice(1,-1),r.arrival].filter(p=>ll(p));
-  return {pl,b:Math.max(0,pl.indexOf(r.departure))};
+  const a=st.appr.get(vkey(r))||[],t=now();
+  let B=r.departure,pre=a.slice(0,-1);
+  if(a.length>1){
+    /* Ankunft an deiner Haltestelle: aktuelle Abfahrt minus Haltezeit laut Anfahrt */
+    const last=a[a.length-1],la=arr(last),ld=dep(last),dB=dep(r.departure);
+    const dwell=la!=null&&ld!=null?Math.max(0,Math.min(300,ld-la)):0;
+    if(dB!=null){
+      const aB=dB-dwell;
+      B=Object.assign({},r.departure,{prognosis:Object.assign({},r.departure.prognosis||{},{arrival:isoT(aB)})});
+      /* Anfahrt-Zeiten an die aktuelle Prognose anpassen (nur Haltestellen, die noch kommen) */
+      const delta=la!=null?aB-la:0;
+      if(Math.abs(delta)>=30){
+        let floor=-Infinity;
+        pre=pre.map(p=>{const tp=dep(p)??arr(p);if(tp!=null&&tp<=t){floor=Math.max(floor,tp);return p}return shifted(p,delta,Math.max(floor,t-1))});
+      }
+    }
+  }
+  const pl=[...pre,B,...(r.journey.passList||[]).slice(1,-1),r.arrival].filter(p=>ll(p));
+  return {pl,b:Math.max(0,pl.indexOf(B))};
 }
 /* ---------- Echte Linienverläufe (OpenStreetMap, shapes.json) ---------- */
 const GEO={idx:null,p:null},GFIT=new Map(),WGEO=new Map();
@@ -865,7 +889,8 @@ function tick(){
     const el=v.m.getElement();if(!el)continue;const box=el.firstChild,P=pos(v.r);
     if(!P||P.done){el.style.display='none';continue}
     el.style.display='';v.m.setLatLng(P.p);v.lastP=P.p;
-    const b=box.querySelector('i'),txt=P.waitMin!=null?`${P.waitMin}'`:'';
+    const s0=st.apprState.get(vkey(v.r)),unk=P.b===0&&P.waitMin!=null&&s0!=='start';
+    const b=box.querySelector('i'),txt=P.waitMin==null?'':unk?`${P.waitMin}' · Position ?`:P.b===0?`startet hier · ${P.waitMin}'`:P.prog>=P.b?`steht hier · ${P.waitMin}'`:`${P.waitMin}'`;
     if(b&&b.textContent!==txt)b.textContent=txt;
     box.classList.toggle('wait',P.b===0&&P.waitMin!=null&&st.apprState.get(vkey(v.r))!=='start');
   }
