@@ -357,7 +357,7 @@ const lineLabel=r=>{const j=r.journey,c=String(j.category||'').trim(),n=String(j
   if(!n||n===c)return c||'Zug';
   return n.length>3?c:(/^\d/.test(n)&&c.length===1?c+n:c+' '+n)};
 const st={tn:0,userMoved:0,routePts:[],walkFallback:false,raw:[],from:'',to:'',time:new Date(),conns:[],selKey:null,demo:false,live:false,updated:0,planB:null,me:null,
-  prog:new Map(),apprState:new Map(),apprAt:new Map(),fitKey:'',veh:[],band:[],busy:false,pending:false,appr:new Map(),orig:new Map()};
+  prog:new Map(),apprState:new Map(),apprAt:new Map(),apprSrc:new Map(),fitKey:'',veh:[],band:[],busy:false,pending:false,appr:new Map(),orig:new Map()};
 
 function walkSec(s){
   const a=s.departure&&s.departure.departureTimestamp,b=s.arrival&&s.arrival.arrivalTimestamp;
@@ -420,7 +420,7 @@ async function getJSON(url){
 const BC=new Map();
 function board(id,t,kind){
   const b=Math.floor(t/300),k=id+'|'+b+'|'+(kind||''),c=BC.get(k);
-  if(c&&now()-c.at<90)return c.p;
+  if(c&&now()-c.at<15)return c.p;
   const d=new Date(b*300*1000);
   const q=new URLSearchParams({id,limit:kind?'60':'40',datetime:ymd(d)+' '+hhmm(d)});if(kind)q.append('transportations[]',kind);
   const p=getJSON(API+'stationboard?'+q).then(j=>j.stationboard||[]).catch(()=>[]);
@@ -542,7 +542,7 @@ async function loadApproaches(){
 async function loadApproach(r){
   const d=dep(r.departure),dp=r.departure&&r.departure.departureTimestamp;if(!d||!dp)return;
   if(d<now()-60||d-now()>50*60)return;
-  const key=vkey(r);if(st.apprState.has(key)&&now()-(st.apprAt.get(key)||0)<60)return;st.apprAt.set(key,now());
+  const key=vkey(r);if(st.apprState.has(key)&&now()-(st.apprAt.get(key)||0)<15)return;st.apprAt.set(key,now());
   const j=r.journey,B=String(stn(r.departure).id||'');if(!B)return;
   const same=e=>String(e.number)===String(j.number)&&e.category===j.category;
   const pl0=j.passList||[],nextId=pl0[1]?String(stn(pl0[1]).id):'';
@@ -568,14 +568,14 @@ async function loadApproach(r){
   }
   if(!seq||!seq.length){st.apprState.set(key,'start');return}
   /* 2) dieselbe Fahrt einige Haltestellen weiter vorne suchen */
-  const tried=new Set();
-  for(const k of [10,6,3,1].map(x=>Math.min(seq.length,x))){
-    if(tried.has(k))continue;tried.add(k);
+  const tried=new Set(),src=st.apprSrc.get(key);
+  for(const k of [src||0,10,6,3,1].map(x=>Math.min(seq.length,x))){
+    if(!k||tried.has(k))continue;tried.add(k);
     const A=seq[k-1];if(!A||A===B)continue;
     const L=await board(A,dp-k*150-600,kind);
     const m=L.find(e=>e.name===j.name&&same(e));
     if(m){const i=(m.passList||[]).findIndex(p=>String(stn(p).id)===B);
-      if(i>0){const pl=m.passList.slice(0,i+1);if(m.stop)pl[0]=Object.assign({},pl[0],m.stop);st.appr.set(key,pl);st.apprState.set(key,'ok');return}}
+      if(i>0){const pl=m.passList.slice(0,i+1);if(m.stop)pl[0]=Object.assign({},pl[0],m.stop);st.appr.set(key,pl);st.apprState.set(key,'ok');st.apprSrc.set(key,k);return}}
   }
   /* nirgends davor gefunden: Fahrt beginnt an deiner Haltestelle */
   st.apprState.set(key,'start');
@@ -1021,7 +1021,7 @@ function setView(v){if(v==='map'&&matchMedia('(min-width:900px)').matches)v='pla
 $('#seg').addEventListener('click',e=>{const b=e.target.closest('button');if(b)setView(b.dataset.v)});
 setView(LS.get('lg-view','plan'));
 setInterval(tick,1000);
-setInterval(()=>{if(!document.hidden&&st.conns.length&&!st.demo)load(false)},30000);
+setInterval(()=>{if(!document.hidden&&st.conns.length&&!st.demo)load(false)},20000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&st.conns.length&&!st.demo&&now()-st.updated>20)load(false)});
 loadShapes();
 window.__lg={st,geoFor,pos,along};
