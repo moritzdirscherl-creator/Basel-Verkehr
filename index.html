@@ -330,7 +330,8 @@ const vkey=r=>(r.journey.name||r.journey.number)+'@'+(r.departure&&r.departure.d
 const ckey=c=>(c.sections||[]).filter(s=>s.journey).map(vkey).join('|');
 const lvl=b=>b==null?'direct':b<0?'bad':b<120?'warn':'ok';
 const LV={ok:'Längt',warn:'Knapp',bad:'Längt nid',direct:'Direkt'};
-const DV={ok:'Längt',renn:'Renn!',bad:'Längt nid'};
+const DV={ok:'Längt',renn:'Renn!',bad:'Längt nid',due:'Kommt gleich'};
+const GRACE=180; /* Echtzeit hinkt oft ~1 Min. hinterher: so lange nach Abfahrt nicht «weg» melden */
 const LC={ok:'#1f9d55',warn:'#e0a100',bad:'#d23b2f',direct:'#69726d'};
 const hav=(a,b)=>{const R=6371e3,r=Math.PI/180,dLa=(b[0]-a[0])*r,dLo=(b[1]-a[1])*r;const h=Math.sin(dLa/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(h))};
 const plat=p=>String(p&&(p.platform||(p.prognosis&&p.prognosis.platform))||'').trim();
@@ -679,7 +680,8 @@ function pos(r){
     if(t<tD(i)){prog=i;break}
     if(t<tA(i+1)){prog=i+(t-tD(i))/Math.max(1,tA(i+1)-tD(i));break}
   }
-  const key=vkey(r),old=st.prog.get(key);if(old!=null&&prog<old&&old-prog<1.5)prog=old;st.prog.set(key,prog);
+  const key=vkey(r);if(st.dueKey===key&&prog>b)prog=b;
+  const old=st.prog.get(key);if(old!=null&&prog<old&&old-prog<1.5&&st.dueKey!==key)prog=old;st.prog.set(key,prog);
   const i=Math.min(Math.floor(prog),n-1),f=Math.min(1,prog-i),A=ll(pl[i]),B=ll(pl[i+1]),g=geoFor(r);
   const p=g&&g.ds.length===pl.length?along(g.s,g.ds[i]+(g.ds[i+1]-g.ds[i])*f):[A[0]+(B[0]-A[0])*f,A[1]+(B[1]-A[1])*f];
   if(st.rideState.get(key)==='in'&&meFresh()){
@@ -768,7 +770,7 @@ function rideStatus(r){
     st.rideState.set(key,'in');buzz([120,80,120]);return{state:'in',pr};
   }
   const nearStop=hav(st.me,ll(r.departure)||st.me)<200+acc;
-  if(t>tb+40&&nearStop&&!moved)return{state:'missed',pr};
+  if(t>tb+GRACE&&nearStop&&!moved)return{state:'missed',pr};
   return{state:'out',pr};
 }
 function buzz(p){try{navigator.vibrate&&navigator.vibrate(p)}catch(e){}}
@@ -784,8 +786,11 @@ function depStatus(c,a){
   if(rs&&(rs.state==='in'||rs.state==='done'))return{boarded:true,gps:true,r0};
   if(rs&&rs.state==='missed'&&rs.manual)return{level:'bad',gone:true,slack:tb-t,need:0,src,r0,tb,atStop};
   if(a.rides.slice(1).some(r=>{const x=rideStatus(r);return x&&x.state==='in'}))return{boarded:true,gps:true,r0};
+  const sel=ckey(c)===st.selKey;if(sel&&st.dueKey===k0)st.dueKey=null;
   if(t>tb+20){
-    if(meFresh()&&st.manual.get(k0)!=='stop')return{level:'bad',gone:true,slack:tb-t-need,need,src,r0,tb,atStop};
+    const here=atStop||(meFresh()&&stop&&hav(st.me,stop)<150);
+    if(here&&t<=tb+GRACE){if(sel)st.dueKey=k0;return{level:'due',due:true,slack:tb-t,need:0,src,r0,tb,atStop:true}}
+    if(here||meFresh())return{level:'bad',gone:true,likely:true,slack:tb-t-need,need,src,r0,tb,atStop};
     return{boarded:true,r0,ask:true};
   }
   const slack=tb-t-need;
@@ -802,9 +807,9 @@ function renderHero(){
   const d=depStatus(c,a),t=now(),first=(c.sections||[])[0],r0=a.rides[0];
   let cls='ride0',html,cdv=null,cdlv='';
   if(d&&!d.boarded){
-    cls=d.level;
-    const cd=d.level==='bad'?(d.gone?'weg':'zu spät'):d.slack<120?mmss(d.slack):d.slack>=5400?hm(d.tb):Math.floor(d.slack/60)+' Min.';
-    const cdl=d.level==='bad'?'':d.slack>=5400?'Abfahrt':d.src&&!d.atStop?(d.slack<120?'bis du los musst':'bis los'):'bis Abfahrt';cdv=cd;cdlv=cdl;
+    cls=d.level==='due'?'renn':d.level;
+    const cd=d.due?'+'+mmss(t-d.tb):d.level==='bad'?(d.gone?'weg':'zu spät'):d.slack<120?mmss(d.slack):d.slack>=5400?hm(d.tb):Math.floor(d.slack/60)+' Min.';
+    const cdl=d.due?'über Fahrplan':d.level==='bad'?(d.likely?'vermutlich':''):d.slack>=5400?'Abfahrt':d.src&&!d.atStop?(d.slack<120?'bis du los musst':'bis los'):'bis Abfahrt';cdv=cd;cdlv=cdl;
     const walkFirst=first&&!first.journey;
     const atS=d.atStop&&!d.gone,k0=esc(vkey(r0));
     const how=atS?`<b>An der Haltestelle ✓</b> ${esc(short(stn(r0.departure).name))}`:walkFirst?`${mins(walkSec(first))} Min. zu Fuss zur <b>${esc(short(stn(first.arrival).name))}</b>`
@@ -812,11 +817,14 @@ function renderHero(){
       :`ab <b>${esc(short(stn(r0.departure).name))}</b>`;
     html=`<div class="th"><span class="tic">${!atS&&(walkFirst||d.src==='gps')?WALK:icon(r0)}</span><div class="tb"><div class="ts">Abfahrt</div><div class="tt gw">${DV[d.level]}</div></div><div class="tr"><span class="cdv"></span><small class="cdl"></small></div></div>
       <div class="gsub">${how} · ${LN(r0)} ${hm(d.tb)}${mode(r0)==='train'&&plat(r0.departure)?` · <b>Gleis ${esc(plat(r0.departure))}</b>`:''}${!meFresh()&&!atS?' <button type="button" class="gpsbtn" data-act="gps">📍 Standort an</button>':''}</div>`;
+    if(d.due)html+=`<div class="gsub">Laut Daten abgefahren – die Echtzeit hinkt oft etwa 1 Min. hinterher. Noch nicht gekommen? Einfach warten.</div>`;
     if(!d.gone){const bt=[];
       if(!atS)bt.push(`<button type="button" class="gpsbtn" data-act="stop" data-r="${k0}">🚏 Bin an der Haltestelle</button>`);
       else if(d.src==='tap')bt.push(`<button type="button" class="gpsbtn ghost" data-act="undo" data-r="${k0}">Doch nicht</button>`);
-      if(d.tb-t<=180)bt.push(`<button type="button" class="gpsbtn" data-act="in" data-r="${k0}">${icon(r0)} Bin drin</button>`);
+      if(d.tb-t<=180||d.due)bt.push(`<button type="button" class="gpsbtn" data-act="in" data-r="${k0}">${icon(r0)} Bin drin</button>`);
+      if(d.due)bt.push(`<button type="button" class="gpsbtn" data-act="missed" data-r="${k0}">Verpasst</button>`);
       html+=`<div class="acts">${bt.join('')}</div>`}
+    else if(d.likely&&!st.manual.get(vkey(r0)))html+=`<div class="acts"><button type="button" class="gpsbtn" data-act="in" data-r="${k0}">${icon(r0)} Doch erwischt</button></div>`;
     else if(st.manual.get(vkey(r0))==='missed')html+=`<div class="acts"><button type="button" class="gpsbtn ghost" data-act="undo" data-r="${k0}">Doch erwischt?</button></div>`;
     if(d.level==='bad'){const n=nextOk();
       if(n)html+=`<div class="alt">Nächste: ${n.a.rides.map(r=>LN(r)).join(' ')} <b>${hm(n.d.tb)}</b> <span class="mu">${DV[n.d.level]}</span><button type="button" data-k="${esc(ckey(n.c))}">Anzeigen</button></div>`}
@@ -917,6 +925,7 @@ function legStatus(P,r){
   const rs=rideStatus(r);
   if(rs&&rs.state==='in'){const left=Math.max(0,P.n-Math.floor(P.prog+0.02));return left<=1?`<b>Du bist drin ✓ · nächster Halt aussteigen: ${esc(short(stn(r.arrival).name))}</b>`:`Du bist drin ✓ <em>· noch ${left===1?"1 Halt":left+" Halte"} bis ${esc(short(stn(r.arrival).name))}</em>`}
   if(rs&&rs.state==='missed')return`<b style="color:var(--bad)">Verpasst</b> <em>· Fahrzeug ist weg, du bist noch an der Haltestelle</em>`;
+  if(st.dueKey===vkey(r))return`<b>Fällig</b> <em>· laut Daten weg, kommt wohl gleich (Echtzeit hinkt nach)</em>`;
   if(P.done||P.prog>=P.n)return'angekommen';
   if(P.prog<P.b)return`Jetzt ${where} <em>· noch ${pl(P.b-i)} bis zu dir · ${P.waitMin??0} Min.</em>`;
   if(P.waitMin!=null){
